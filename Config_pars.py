@@ -1,2 +1,0 @@
-api_id = 14026689
-api_hash = '4cda522efe7135f615827b09096fec01'

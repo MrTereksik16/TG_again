@@ -2,12 +2,13 @@ import pandas as pd
 import asyncio
 from telethon import TelegramClient
 from telethon.tl.types import MessageMediaPhoto, MessageMediaDocument, DocumentAttributeVideo
-import Config_pars
 from PIL import Image
-
 import os
-api_id = Config_pars.api_id
-api_hash = Config_pars.api_hash
+from config import config
+
+api_id = config.API_ID
+api_hash = config.API_HASH
+
 
 async def download_media(client, msg):
     if msg.media and isinstance(msg.media, MessageMediaPhoto):
@@ -25,7 +26,6 @@ async def download_media(client, msg):
             return compressed_filename
 
 
-
 def compress_image(filename):
     image = Image.open(filename)
     compressed_filename = f'{filename}'
@@ -33,14 +33,13 @@ def compress_image(filename):
     return compressed_filename
 
 
-
-async def parse(name_channel: str) -> dict:
+async def parse(name_channel: str) -> list[dict]:
     limit = 10
     phone_number = '+224 (625) 083-393'
     channel = name_channel.replace('@', '')
     channel_name = f'{channel}'
 
-    client = TelegramClient('session_name', Config_pars.api_id, Config_pars.api_hash)
+    client = TelegramClient('session_name', config.API_ID, config.API_HASH)
     await client.start()
     await client.sign_in(phone=phone_number)
 
