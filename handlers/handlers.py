@@ -1,4 +1,4 @@
-from aiogram import Bot, Dispatcher
+from aiogram import Bot, Dispatcher, types
 from aiogram.types import Message
 from telethon import TelegramClient
 from telethon.tl.types import Channel
@@ -7,11 +7,12 @@ from config import config
 from database.queries import create_user_channel, get_user, create_user, get_user_personal_channels
 from logging_config import logger
 from utils import strings
+import keyboards
 
 bot = Bot(token=config.TOKEN)
 dp = Dispatcher(bot)
 client = TelegramClient('session_name', config.API_ID, config.API_HASH)
-client.start()
+# client.start()
 
 
 async def on_start_command(message: Message):
@@ -60,6 +61,11 @@ async def on_add_channels_message(message: Message):
             channels_already_added=", ".join(already_added))
     return await message.answer(message_text)
 
+async def get_categories_from_user(message:Message):
+    if message.text == "🦁Животные" or message.text == "🎮Игры" or message.text == "⚽️Спорт" or message.text == "🔬Наука" or message.text == "🚗Машины" or message.text == "👨‍💻IT" or message.text == "📈Инвестиции" or message.text == "🕹Техника" or message.text == "💸Финансы" or message.text == "🌎Путешествия" or message.text == "😂Мемы" or message.text == "🪙Криптовалюты" or message.text == "🎬Фильмы" or message.text =='📸Аниме':
+        await message.answer(f"Мы добавили {message.text} в список ваших категорий")
+    else:
+        await message.answer('ti lox')
 
 async def on_list_command(message: Message):
     user_tg_id = message.from_user.id
@@ -72,14 +78,12 @@ async def on_list_command(message: Message):
             usernames.append(f'@{channel}')
 
         await message.answer(f'Добавленные каналы:\n{", ".join(usernames)}')
+async def go_to_categories_lenta(message: Message):
+    keyboard = types.ReplyKeyboardMarkup(keyboard=keyboards.keyboard_of_categories)
 
-
-
-
-
-
-
-
+    await message.answer(
+        "<b>Наш список категорий, но он обязательно будет обновляться🤩</b><i>\n\n 🎬Фильмы \n 🦁Животные \n 🎮Игры \n 📈Инвестиции \n ⚽️Спорт \n 🔬Наука \n 🚗Машины \n 👨‍💻IT \n 🕹Техника \n 💸Финансы \n 🌎Путешествия \n 😂Мемы \n 🍿Аниме \n 🪙Криптовалюты </i>\n\n‼️<b>Чтобы удалить категорию нажмите на нее второй раз</b>‼️",
+        reply_markup=keyboard, parse_mode="HTML")
 
 # async def on_start(message: Message):
 # keyboard = ReplyKeyboardMarkup(keyboard=start_button, resize_keyboard=True)
