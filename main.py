@@ -1,13 +1,13 @@
 import logging
 from aiogram import types
-from aiogram.dispatcher.filters import Text, Command
+from aiogram.dispatcher.filters import Text
 from aiogram.utils import executor
 from config.startup_config import set_default_commands
 from database.models import Base, engine
 from config.logging_config import logger
 from handlers.handlers import dp, on_add_channels_command, on_list_command, on_start_command, on_add_channels_message, \
     on_delete_user_channel_command, on_add_channels_button_click
-from utils.states import UserStates
+from store.states import UserStates
 from callbacks import callbacks
 from buttons.reply.lents import lents_buttons_text
 

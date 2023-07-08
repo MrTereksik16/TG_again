@@ -1,8 +1,8 @@
-from aiogram import Bot, Dispatcher
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
 from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery, ReplyKeyboardRemove
+from aiogram import Bot, Dispatcher, types
 from telethon import TelegramClient
 from telethon.tl.types import Channel
 from config import config
@@ -10,10 +10,10 @@ from database.queries import create_user_channel, get_user, create_user, get_use
     delete_personal_channel
 from config.logging_config import logger
 from keyboards.inline.inline_keyboards import add_user_channels_inline_keyboard
+from keyboards.reply.lents.categories_keyboard import categories_control_keyboard
 from keyboards.reply.lents.personal_keyboard import personal_control_keyboard
-from parse import parse
-from utils import strings
-from utils.states import UserStates
+from utils.consts import *
+from store.states import UserStates
 from callbacks import callbacks
 
 client = TelegramClient('bot_session', config.API_ID, config.API_HASH).start(config.TOKEN)
@@ -27,20 +27,20 @@ async def on_start_command(message: Message, state: FSMContext):
     user = await get_user(user_tg_id)
     if not user:
         await create_user(user_tg_id)
-        await message.answer(strings.START_MESSAGE_FOR_NEW)
+        await message.answer(START_MESSAGE_FOR_NEW)
     else:
-        msg = await message.answer(strings.START_MESSAGE_FOR_OLD, reply_markup=personal_control_keyboard)
+        msg = await message.answer(START_MESSAGE_FOR_OLD, reply_markup=personal_control_keyboard)
         await state.update_data(reply_keyboard_message_id=msg.message_id)
 
 
 async def on_add_channels_command(message: Message, state: FSMContext):
-    await message.answer(strings.ADD_CHANNELS_MESSAGE)
+    await message.answer(ADD_CHANNELS_MESSAGE, reply_markup=ReplyKeyboardRemove())
     await state.set_state(UserStates.GET_CHANNELS)
 
 
 async def on_add_channels_button_click(callback: CallbackQuery, state: FSMContext):
     chat_id = callback.message.chat.id
-    await bot.send_message(chat_id, strings.ADD_CHANNELS_MESSAGE, reply_markup=ReplyKeyboardRemove())
+    await bot.send_message(chat_id, ADD_CHANNELS_MESSAGE, reply_markup=ReplyKeyboardRemove())
     await state.set_state(UserStates.GET_CHANNELS)
     await callback.answer()
 
@@ -68,17 +68,18 @@ async def on_add_channels_message(message: Message, state: FSMContext):
 
     message_text = ''
     if added:
-        message_text += strings.CHANNELS_ADDED_MESSAGE.format(channels_added=", ".join(added))
+        message_text += CHANNELS_ADDED_MESSAGE.format(channels_added=', '.join(added))
     if not_added:
-        message_text += strings.CHANNELS_NOT_ADDED_MESSAGE.format(channels_not_added=", ".join(not_added))
+        message_text += CHANNELS_NOT_ADDED_MESSAGE.format(channels_not_added=', '.join(not_added))
     if already_added:
-        message_text += strings.CHANNELS_ALREADY_ADDED_MESSAGE.format(channels_already_added=", ".join(already_added))
+        message_text += CHANNELS_ALREADY_ADDED_MESSAGE.format(channels_already_added=', '.join(already_added))
 
     await message.answer(message_text, reply_markup=personal_control_keyboard)
     await state.reset_state()
 
-    for username in added:
-        await parse(username)
+    # Парсинг
+    # for username in added:
+    #     await parse(username)
 
 
 async def on_list_command(message: Message):
@@ -86,11 +87,11 @@ async def on_list_command(message: Message):
     channels = await get_user_personal_channels(user_tg_id)
     usernames = []
     if not channels:
-        await message.answer(strings.EMPTY_LIST_CHANNELS_MESSAGE, reply_markup=add_user_channels_inline_keyboard)
+        await message.answer(EMPTY_LIST_CHANNELS_MESSAGE, reply_markup=add_user_channels_inline_keyboard)
     else:
         for channel in channels:
             usernames.append(f'@{channel}')
-        await message.answer(strings.ADDED_CHANNELS_MESSAGE.format(usernames=", ".join(usernames)))
+        await message.answer(ADDED_CHANNELS_MESSAGE.format(usernames=', '.join(usernames)))
 
 
 async def on_delete_user_channel_command(message: Message, state: FSMContext):
@@ -98,13 +99,13 @@ async def on_delete_user_channel_command(message: Message, state: FSMContext):
     usernames = await get_user_personal_channels(user_tg_id)
 
     if not usernames:
-        return await message.answer(strings.EMPTY_LIST_CHANNELS_MESSAGE, reply_markup=add_user_channels_inline_keyboard)
+        return await message.answer(EMPTY_LIST_CHANNELS_MESSAGE, reply_markup=add_user_channels_inline_keyboard)
 
     keyboard = InlineKeyboardMarkup()
 
     for username in usernames:
         keyboard.add(InlineKeyboardButton(username, callback_data=f'delete_user_channel:{username}'))
-    msg = await message.answer(strings.DELETE_CHANNEL_MESSAGE, reply_markup=keyboard)
+    msg = await message.answer(DELETE_CHANNEL_MESSAGE, reply_markup=keyboard)
     await state.update_data(user_channels_usernames=usernames)
     await state.update_data(delete_user_channels_message=msg)
     dp.register_callback_query_handler(on_delete_user_channel_button_click,
@@ -115,7 +116,7 @@ async def on_delete_user_channel_button_click(callback: CallbackQuery, state: FS
     username = callback.data.split(':')[1]
     logger.error(callback.data)
     context_data = await state.get_data()
-    usernames = context_data.get('usernames')
+    usernames = context_data.get('user_channels_usernames')
     result = await delete_personal_channel(username)
     msg = context_data.get('delete_user_channels_message')
 
@@ -135,3 +136,19 @@ async def on_delete_user_channel_button_click(callback: CallbackQuery, state: FS
         await callback.answer('Канал успешно удалён из списка')
     else:
         await callback.answer('Не удалось удалить канал')
+
+
+async def get_categories_from_user(message: Message):
+    if message.text in categories:
+        await message.answer(f'Мы добавили {message.text} в список ваших категорий')
+    else:
+        await message.answer('И как так то?')
+
+
+async def go_to_categories(message: Message):
+    keyboard = types.ReplyKeyboardMarkup(keyboard=categories_control_keyboard)
+    answer = '***Наш список категорий, но он обязательно будет обновляться🤩***\n\n'
+    for i in range(0, len(categories)):
+        answer += f'{categories[i]}\n'
+    answer += '\n‼***Чтобы удалить категорию нажмите на нее второй раз***‼'
+    await message.answer(answer, reply_markup=keyboard, parse_mode='Markdown')
