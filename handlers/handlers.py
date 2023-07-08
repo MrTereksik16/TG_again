@@ -1,34 +1,51 @@
 from aiogram import Bot, Dispatcher
-from aiogram.types import Message
+from aiogram.contrib.fsm_storage.memory import MemoryStorage
+from aiogram.dispatcher import FSMContext
+from aiogram.dispatcher.filters import Text
+from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery, ReplyKeyboardRemove
 from telethon import TelegramClient
 from telethon.tl.types import Channel
-
 from config import config
-from database.queries import create_user_channel, get_user, create_user, get_user_personal_channels
-from logging_config import logger
+from database.queries import create_user_channel, get_user, create_user, get_user_personal_channels, \
+    delete_personal_channel
+from config.logging_config import logger
+from keyboards.inline.inline_keyboards import add_user_channels_inline_keyboard
+from keyboards.reply.lents.personal_keyboard import personal_control_keyboard
+from parse import parse
 from utils import strings
+from utils.states import UserStates
+from callbacks import callbacks
 
+client = TelegramClient('bot_session', config.API_ID, config.API_HASH).start(config.TOKEN)
 bot = Bot(token=config.TOKEN)
-dp = Dispatcher(bot)
-client = TelegramClient('session_name', config.API_ID, config.API_HASH)
-client.start()
+storage = MemoryStorage()
+dp = Dispatcher(bot, storage=storage)
 
 
-async def on_start_command(message: Message):
+async def on_start_command(message: Message, state: FSMContext):
     user_tg_id = message.from_user.id
     user = await get_user(user_tg_id)
     if not user:
         await create_user(user_tg_id)
         await message.answer(strings.START_MESSAGE_FOR_NEW)
     else:
-        await message.answer(strings.START_MESSAGE_FOR_OLD)
+        msg = await message.answer(strings.START_MESSAGE_FOR_OLD, reply_markup=personal_control_keyboard)
+        await state.update_data(reply_keyboard_message_id=msg.message_id)
 
 
-async def on_add_channels_command(message: Message):
+async def on_add_channels_command(message: Message, state: FSMContext):
     await message.answer(strings.ADD_CHANNELS_MESSAGE)
+    await state.set_state(UserStates.GET_CHANNELS)
 
 
-async def on_add_channels_message(message: Message):
+async def on_add_channels_button_click(callback: CallbackQuery, state: FSMContext):
+    chat_id = callback.message.chat.id
+    await bot.send_message(chat_id, strings.ADD_CHANNELS_MESSAGE, reply_markup=ReplyKeyboardRemove())
+    await state.set_state(UserStates.GET_CHANNELS)
+    await callback.answer()
+
+
+async def on_add_channels_message(message: Message, state: FSMContext):
     links = [link.strip() for link in message.text.split(',') if link.strip()]
     user_tg_id = message.from_user.id
     added = []
@@ -52,13 +69,16 @@ async def on_add_channels_message(message: Message):
     message_text = ''
     if added:
         message_text += strings.CHANNELS_ADDED_MESSAGE.format(channels_added=", ".join(added))
-
     if not_added:
         message_text += strings.CHANNELS_NOT_ADDED_MESSAGE.format(channels_not_added=", ".join(not_added))
     if already_added:
-        message_text += strings.CHANNELS_ALREADY_ADDED_MESSAGE.format(
-            channels_already_added=", ".join(already_added))
-    return await message.answer(message_text)
+        message_text += strings.CHANNELS_ALREADY_ADDED_MESSAGE.format(channels_already_added=", ".join(already_added))
+
+    await message.answer(message_text, reply_markup=personal_control_keyboard)
+    await state.reset_state()
+
+    for username in added:
+        await parse(username)
 
 
 async def on_list_command(message: Message):
@@ -66,29 +86,52 @@ async def on_list_command(message: Message):
     channels = await get_user_personal_channels(user_tg_id)
     usernames = []
     if not channels:
-        await message.answer('Список каналов пуст')
+        await message.answer(strings.EMPTY_LIST_CHANNELS_MESSAGE, reply_markup=add_user_channels_inline_keyboard)
     else:
         for channel in channels:
             usernames.append(f'@{channel}')
-
-        await message.answer(f'Добавленные каналы:\n{", ".join(usernames)}')
-
+        await message.answer(strings.ADDED_CHANNELS_MESSAGE.format(usernames=", ".join(usernames)))
 
 
+async def on_delete_user_channel_command(message: Message, state: FSMContext):
+    user_tg_id = message.from_user.id
+    usernames = await get_user_personal_channels(user_tg_id)
+
+    if not usernames:
+        return await message.answer(strings.EMPTY_LIST_CHANNELS_MESSAGE, reply_markup=add_user_channels_inline_keyboard)
+
+    keyboard = InlineKeyboardMarkup()
+
+    for username in usernames:
+        keyboard.add(InlineKeyboardButton(username, callback_data=f'delete_user_channel:{username}'))
+    msg = await message.answer(strings.DELETE_CHANNEL_MESSAGE, reply_markup=keyboard)
+    await state.update_data(user_channels_usernames=usernames)
+    await state.update_data(delete_user_channels_message=msg)
+    dp.register_callback_query_handler(on_delete_user_channel_button_click,
+                                       Text(startswith=callbacks.DELETE_USER_CHANNEL))
 
 
+async def on_delete_user_channel_button_click(callback: CallbackQuery, state: FSMContext):
+    username = callback.data.split(':')[1]
+    logger.error(callback.data)
+    context_data = await state.get_data()
+    usernames = context_data.get('usernames')
+    result = await delete_personal_channel(username)
+    msg = context_data.get('delete_user_channels_message')
 
+    if result:
+        logger.error(usernames)
+        usernames.remove(username)
+        await state.update_data(user_channels_usernames=usernames)
+        edited_keyboard = InlineKeyboardMarkup()
 
-
-
-# async def on_start(message: Message):
-# keyboard = ReplyKeyboardMarkup(keyboard=start_button, resize_keyboard=True)
-# result = session.execute(select(User.user_tg_id)).all()
-# user_tg_ids = [row[0] for row in result]
-# if message.from_user.id not in user_tg_ids:
-#     session.add(User(user_tg_id=message.from_user.id, last_post_id=123))
-#     session.commit()
-#     await message.reply("<b>Добро пожаловать дорогой, {message.from_user.first_name}!👨‍💻\n\nМы создали этого бота для твоего удобства, чтобы тебе было удобно пользоваться Телеграммом, источниками твоего вдохновения и отдыха 😇</b>",parse_mode="HTML",
-#         reply_markup=keyboard)
-# else:
-#     await message.reply(f"<b>Рады вас снова видеть ,{message.from_user.first_name}😃</b>", reply_markup=keyboard, parse_mode="HTML")
+        for username in usernames:
+            edited_keyboard.add(InlineKeyboardButton(username, callback_data=f'delete_user_channel:{username}'))
+        if not edited_keyboard['inline_keyboard']:
+            await msg.edit_text('Список каналов пуст')
+            await msg.edit_reply_markup(reply_markup=add_user_channels_inline_keyboard)
+        else:
+            await msg.edit_reply_markup(reply_markup=edited_keyboard)
+        await callback.answer('Канал успешно удалён из списка')
+    else:
+        await callback.answer('Не удалось удалить канал')

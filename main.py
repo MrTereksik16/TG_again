@@ -1,45 +1,64 @@
 import logging
-
 from aiogram import types
-from aiogram import executor
-from aiogram.types import Message
+from aiogram.dispatcher.filters import Text, Command
+from aiogram.utils import executor
+from config.startup_config import set_default_commands
 from database.models import Base, engine
-from handlers.handlers import on_add_channels_command, on_start_command, on_add_channels_message, dp, on_list_command
-from logging_config import logger
+from config.logging_config import logger
+from handlers.handlers import dp, on_add_channels_command, on_list_command, on_start_command, on_add_channels_message, \
+    on_delete_user_channel_command, on_add_channels_button_click
+from utils.states import UserStates
+from callbacks import callbacks
+from buttons.reply.lents import lents_buttons_text
 
-logging.basicConfig(level=logging.INFO)
+dp.register_message_handler(
+    on_start_command,
+    commands='start',
+)
 
+dp.register_message_handler(
+    on_add_channels_command,
+    commands='add_channels'
+)
 
-async def set_default_commands(dp):
-    await dp.bot.set_my_commands([
-        types.BotCommand("start", "Посмотреть посты"),
-        types.BotCommand("add_channels", "Добавить канал"),
-        types.BotCommand("list", "Список добавленных каналов"),
-        # types.BotCommand("deletechannels", "Удалить каналы из списка"),
-    ])
+dp.register_message_handler(
+    on_add_channels_command,
+    Text(equals=lents_buttons_text.add_channels_button_text),
+)
 
+dp.register_callback_query_handler(on_add_channels_button_click, Text(callbacks.ADD_USER_CHANNELS))
 
-@dp.message_handler(commands=['start'])
-async def start_command(message: Message):
-    await on_start_command(message=message)
+dp.register_message_handler(
+    on_add_channels_message,
+    state=UserStates.GET_CHANNELS,
+    content_types=types.ContentType.TEXT,
+)
 
+dp.register_message_handler(
+    on_list_command,
+    commands='list',
+)
 
-@dp.message_handler(commands=['add_channels'])
-async def add_channels_command(message: Message):
-    await on_add_channels_command(message)
+dp.register_message_handler(
+    on_list_command,
+    Text(equals=lents_buttons_text.list_channels_button_text),
+)
 
-    @dp.message_handler(content_types=types.ContentType.TEXT)
-    async def add_channels(message: Message):
-        await on_add_channels_message(message)
-
-
-@dp.message_handler(commands=['list'])
-async def list_command(message: Message):
-    await on_list_command(message)
-
+dp.register_message_handler(
+    on_delete_user_channel_command,
+    commands='delete_channels'
+)
+dp.register_message_handler(
+    on_delete_user_channel_command,
+    Text(equals=lents_buttons_text.delete_channels_button_text),
+)
 
 if __name__ == '__main__':
-    Base.metadata.create_all(engine)
-
+    logging.basicConfig(level=logging.DEBUG)
     logger.warning("Starting the bot...")
+
+    # Пересоздаёт бд
+    # Base.metadata.drop_all(engine, checkfirst=True)
+
+    Base.metadata.create_all(engine)
     executor.start_polling(dp, skip_updates=True, on_startup=set_default_commands)
