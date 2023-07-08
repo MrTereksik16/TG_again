@@ -16,7 +16,8 @@ from utils.consts import *
 from store.states import UserStates
 from callbacks import callbacks
 
-client = TelegramClient('bot_session', config.API_ID, config.API_HASH).start(config.TOKEN)
+client = TelegramClient('bot_session', config.API_ID, config.API_HASH)
+client.start(bot_token=config.TOKEN)
 bot = Bot(token=config.TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
