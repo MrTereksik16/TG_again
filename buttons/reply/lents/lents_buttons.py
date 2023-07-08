@@ -1,6 +1,6 @@
 from aiogram.types import KeyboardButton
 from buttons.reply.lents import lents_buttons_text
-from utils.consts import categories
+from utils.consts import CATEGORIES
 
 to_recommendations_button = KeyboardButton(lents_buttons_text.to_recommendations_button_text)
 to_categories_button = KeyboardButton(lents_buttons_text.to_recommendations_button_text)
@@ -11,8 +11,8 @@ add_channels_button = KeyboardButton(lents_buttons_text.add_channels_button_text
 delete_channels_button = KeyboardButton(lents_buttons_text.delete_channels_button_text)
 
 categories_buttons = [
-    [KeyboardButton(text=categories[i]), KeyboardButton(text=categories[i + 1])]
-    for i in range(0, len(categories), 2)
+    [KeyboardButton(text=CATEGORIES[i]), KeyboardButton(text=CATEGORIES[i + 1])]
+    for i in range(0, len(CATEGORIES), 2)
 ]
 
 

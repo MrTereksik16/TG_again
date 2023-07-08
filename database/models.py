@@ -12,6 +12,7 @@ if not database_exists(engine.url):
 
 # Создаем сессию, чтобы выполнять операции с базой данных
 Session = sessionmaker(bind=engine)
+
 session = Session()
 
 
@@ -117,3 +118,4 @@ class GeneralPost(Base):
 
 
 session.commit()
+session.close()
