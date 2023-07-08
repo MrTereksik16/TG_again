@@ -11,7 +11,7 @@ POST_FROM_CHANNEL_MESSAGE = '\n\nПост с канала @{channel_username}'
 ADDED_CHANNELS_MESSAGE = 'Добавленные каналы:\n{usernames}'
 
 # Категории
-categories = [
+CATEGORIES = [
     '🐶Животные',
     '🎮Игры',
     '📈Инвестиции',

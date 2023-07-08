@@ -139,7 +139,7 @@ async def on_delete_user_channel_button_click(callback: CallbackQuery, state: FS
 
 
 async def get_categories_from_user(message: Message):
-    if message.text in categories:
+    if message.text in CATEGORIES:
         await message.answer(f'Мы добавили {message.text} в список ваших категорий')
     else:
         await message.answer('И как так то?')
@@ -148,7 +148,7 @@ async def get_categories_from_user(message: Message):
 async def go_to_categories(message: Message):
     keyboard = types.ReplyKeyboardMarkup(keyboard=categories_control_keyboard)
     answer = '***Наш список категорий, но он обязательно будет обновляться🤩***\n\n'
-    for i in range(0, len(categories)):
-        answer += f'{categories[i]}\n'
+    for i in range(0, len(CATEGORIES)):
+        answer += f'{CATEGORIES[i]}\n'
     answer += '\n‼***Чтобы удалить категорию нажмите на нее второй раз***‼'
     await message.answer(answer, reply_markup=keyboard, parse_mode='Markdown')
