@@ -7,7 +7,7 @@ from telethon import TelegramClient
 from telethon.tl.types import Channel
 from config import config
 from database.queries import create_user_channel, get_user, create_user, get_user_personal_channels, \
-    delete_personal_channel
+    delete_personal_channel, create_general_channel_by_admin, add_personal_post
 from config.logging_config import logger
 from keyboards.inline.inline_keyboards import add_user_channels_inline_keyboard
 from keyboards.reply.lents.categories_keyboard import categories_control_keyboard
@@ -15,8 +15,12 @@ from keyboards.reply.lents.personal_keyboard import personal_control_keyboard
 from utils.consts import *
 from store.states import UserStates
 from callbacks import callbacks
+from parse import parse
+from config.config import ADMINS
 
-client = TelegramClient('bot_session', config.API_ID, config.API_HASH).start(config.TOKEN)
+
+client = TelegramClient('bot_session', config.API_ID, config.API_HASH)
+client.start(bot_token=config.TOKEN)
 bot = Bot(token=config.TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
@@ -36,7 +40,7 @@ async def on_start_command(message: Message, state: FSMContext):
 async def on_add_channels_command(message: Message, state: FSMContext):
     await message.answer(ADD_CHANNELS_MESSAGE, reply_markup=ReplyKeyboardRemove())
     await state.set_state(UserStates.GET_CHANNELS)
-
+    # await add_personal_post()
 
 async def on_add_channels_button_click(callback: CallbackQuery, state: FSMContext):
     chat_id = callback.message.chat.id
@@ -57,8 +61,10 @@ async def on_add_channels_message(message: Message, state: FSMContext):
             channel_tg_entity = await client.get_entity(link)
         except Exception as err:
             logger.error(f'Ошибка при получении сущности чата: {err}')
-
-        result = await create_user_channel(user_tg_id, channel_tg_entity)
+        if message.from_user.id not in ADMINS:
+            result = await create_user_channel(user_tg_id, channel_tg_entity)
+        else:
+            result = await create_general_channel_by_admin(user_tg_id, channel_tg_entity)
         if result == 'duplicate_entry':
             already_added.append(f'@{channel_tg_entity.username}')
         elif result:
@@ -77,9 +83,10 @@ async def on_add_channels_message(message: Message, state: FSMContext):
     await message.answer(message_text, reply_markup=personal_control_keyboard)
     await state.reset_state()
 
-    # Парсинг
-    # for username in added:
-    #     await parse(username)
+    for username in added:
+        data = await parse(username)
+        await add_personal_post(data=data)
+
 
 
 async def on_list_command(message: Message):

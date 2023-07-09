@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy_utils import database_exists, create_database
@@ -57,8 +57,8 @@ class PersonalChannel(Base):
 class PersonalPost(Base):
     __tablename__ = 'personal_post'
     id = Column(Integer, primary_key=True, autoincrement=True)
-    text = Column(String(100))
-    image_path = Column(String(100))
+    text = Column(Text)
+    image_path = Column(Text)
     channel_id = Column(Integer, ForeignKey('personal_channel.id'))
 
     personal_channel_connection = relationship('PersonalChannel', back_populates='personal_post_connection')

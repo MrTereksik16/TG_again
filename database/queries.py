@@ -1,8 +1,10 @@
 from sqlalchemy import select
 from telethon.tl.types import Channel
-
-from database.models import PersonalChannel, UserChannel, User, session
+import pandas as pd
+from database.models import PersonalChannel, UserChannel, User, session, GeneralChannel, PersonalPost
 from config.logging_config import logger
+
+# df = pd.read_csv('data.csv')
 
 
 async def create_user(user_tg_id):
@@ -35,6 +37,23 @@ async def create_user_channel(user_tg_id, channel_tg_entity: Channel):
             return 'duplicate_entry'
         return False
 
+async def create_general_channel_by_admin(user_tg_id, channel_tg_entity: Channel):
+    try:
+        username = channel_tg_entity.username
+        new_general_channel = GeneralChannel(username=username)
+        session.add(new_general_channel)
+        session.flush()
+        channel_id = new_general_channel.id
+        session.add(UserChannel(user_id=user_tg_id, channel_id=channel_id))
+        session.flush()
+        session.commit()
+        return True
+    except Exception as err:
+        session.rollback()
+        logger.error(f'Ошибка при добавлении пользовательского канала: {err}')
+        if 'Duplicate entry' in str(err):
+            return 'duplicate_entry'
+        return False
 
 async def get_user(user_tg_id):
     try:
@@ -72,3 +91,19 @@ async def delete_personal_channel(username):
         session.rollback()
         logger.error(f'Ошибка при удалении канала из списка пользователя:{err}')
         return False
+
+async def add_personal_post(data):
+    try:
+        channels = session.query(PersonalChannel).all()
+        for channel in channels:
+            channel_id = channel.id
+            for info in data:
+                personal_post = PersonalPost( text=info['text'], image_path=info['media_id'], channel_id=channel_id)
+                session.add(personal_post)
+                session.flush()
+                session.commit()
+
+    except Exception as err:
+        session.rollback()
+        logger.error(f'Ошибка при добавлении пользовательского канала: {err}')
+
