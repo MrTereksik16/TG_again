@@ -57,8 +57,4 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
     logger.warning("Starting the bot...")
 
-    # Пересоздаёт бд
-    # Base.metadata.drop_all(engine, checkfirst=True)
-
-    Base.metadata.create_all(engine)
     executor.start_polling(dp, skip_updates=True, on_startup=set_default_commands)

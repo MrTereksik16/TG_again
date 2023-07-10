@@ -122,7 +122,6 @@ async def on_delete_user_channel_button_click(callback: CallbackQuery, state: FS
     msg = context_data.get('delete_user_channels_message')
 
     if result:
-        logger.error(usernames)
         usernames.remove(username)
         await state.update_data(user_channels_usernames=usernames)
         edited_keyboard = InlineKeyboardMarkup()
@@ -149,7 +148,7 @@ async def get_categories_from_user(message: Message):
 async def go_to_categories(message: Message):
     keyboard = types.ReplyKeyboardMarkup(keyboard=categories_control_keyboard)
     answer = '***Наш список категорий, но он обязательно будет обновляться🤩***\n\n'
-    for i in range(0, len(CATEGORIES)):
-        answer += f'{CATEGORIES[i]}\n'
+    for category in CATEGORIES:
+        answer = f'{CATEGORIES_EMOJI[category]}{category}\n'
     answer += '\n‼***Чтобы удалить категорию нажмите на нее второй раз***‼'
     await message.answer(answer, reply_markup=keyboard, parse_mode='Markdown')
