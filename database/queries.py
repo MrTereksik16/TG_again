@@ -102,9 +102,7 @@ async def delete_personal_channel(username):
 
 async def add_personal_post(data):
     try:
-        # channels = session.query(PersonalChannel).all()
-        # for channel in channels:
-        #     channel_id = channel.id
+
         for info in data:
             personal_post = PersonalPost(text=info['text'], image_path=info['media_id'], channel_id=info['channel_id'])
             session.add(personal_post)
@@ -116,5 +114,42 @@ async def add_personal_post(data):
         session.rollback()
         logger.error(f'Ошибка при добавлении пользовательского канала: {err}')
 
-    finally:
-        session.close()
+async def send_post_for_user_lenta(user_id):
+    try:
+        user_channels = session.query(UserChannel).filter_by(user_id=user_id).all()
+        personal_posts = []
+
+        for user_channel in user_channels:
+            channel = user_channel.personal_channel_connection
+            personal_posts.extend(channel.personal_post_connection)
+
+        return personal_posts
+
+    except Exception as err:
+        session.rollback()
+        logger.error(f'Ошибка при отправлении пользовательского поста: {err}')
+
+
+
+async def get_last_post_id(user_id):
+    try:
+        user = session.query(User).get(user_id)
+        if user:
+            last_post_id = user.last_post_id
+            return last_post_id
+        else:
+            return None
+    except Exception as err:
+        session.rollback()
+        logger.error(f'Ошибка при получении пользовательского последнего ID поста: {err}')
+
+async def update_last_post_id(user_id, post_id):
+    try:
+        user = session.query(User).get(user_id)
+        if user:
+            user.last_post_id = post_id
+            session.commit()
+    except Exception as err:
+        session.rollback()
+        logger.error(f'Ошибка при обновление пользовательского последнего ID поста: {err}')
+

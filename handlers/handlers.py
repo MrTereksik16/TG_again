@@ -1,13 +1,13 @@
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
-from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery, ReplyKeyboardRemove
+from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery, ReplyKeyboardRemove, ChatActions, InputFile
 from aiogram import Bot, Dispatcher, types
 from telethon import TelegramClient
 from telethon.tl.types import Channel
 from config import config
 from database.queries import create_user_channel, get_user, create_user, get_user_personal_channels, \
-    delete_personal_channel, create_general_channel_by_admin, add_personal_post
+    delete_personal_channel, create_general_channel_by_admin, add_personal_post, send_post_for_user_lenta, get_last_post_id, update_last_post_id
 from config.logging_config import logger
 from keyboards.inline.inline_keyboards import add_user_channels_inline_keyboard
 from keyboards.reply.lents.categories_keyboard import categories_control_keyboard
@@ -162,3 +162,53 @@ async def go_to_categories(message: Message):
         answer += f'{CATEGORIES[i]}\n'
     answer += '\n‼***Чтобы удалить категорию нажмите на нее второй раз***‼'
     await message.answer(answer, reply_markup=keyboard, parse_mode='Markdown')
+
+
+async def send_post_for_user(message: Message):
+    user_id = message.from_user.id
+    chat_id = message.chat.id
+
+    personal_posts = await send_post_for_user_lenta(user_id)
+
+    try:
+        if personal_posts:
+            last_post_id = await get_last_post_id(user_id=message.from_user.id)
+
+            next_post = None
+            for post in personal_posts:
+                if post.id > last_post_id:
+                    next_post = post
+                    break
+
+            if next_post:
+                text = next_post.text
+                media_path = next_post.image_path
+                channel_name = next_post.personal_channel_connection.username
+
+            if media_path is not None:
+                if media_path.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')):
+                    message_text = f"Text: {text}\nChannel Name: @{channel_name}"
+                    await bot.send_chat_action(chat_id, action=ChatActions.UPLOAD_PHOTO)
+                    await bot.send_photo(chat_id=chat_id, photo=InputFile(media_path), caption=message_text)
+
+                elif media_path.lower().endswith(('.mp4', '.mov', '.avi')):
+                    message_text = f"Text: {text}\nChannel Name: @{channel_name}"
+                    await bot.send_chat_action(chat_id, action=ChatActions.UPLOAD_VIDEO)
+                    await bot.send_video(chat_id=chat_id, video=InputFile(media_path), caption=message_text)
+            elif text is None or text == '':
+                if media_path.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')):
+                    message_text = f"Channel Name: @{channel_name}"
+                    await bot.send_chat_action(chat_id, action=ChatActions.UPLOAD_PHOTO)
+                    await bot.send_photo(chat_id=chat_id, photo=InputFile(media_path), caption=message_text)
+
+                elif media_path.lower().endswith(('.mp4', '.mov', '.avi')):
+                    message_text = f"Channel Name: @{channel_name}"
+                    await bot.send_chat_action(chat_id, action=ChatActions.UPLOAD_VIDEO)
+                    await bot.send_video(chat_id=chat_id, video=InputFile(media_path), caption=message_text)
+            await update_last_post_id(user_id, post.id)
+    except:
+        await message.answer('Посты закончились')
+
+
+
+

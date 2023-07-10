@@ -6,10 +6,11 @@ from config.startup_config import set_default_commands
 from database.models import Base, engine
 from config.logging_config import logger
 from handlers.handlers import dp, on_add_channels_command, on_list_command, on_start_command, on_add_channels_message, \
-    on_delete_user_channel_command, on_add_channels_button_click
+    on_delete_user_channel_command, on_add_channels_button_click, send_post_for_user
 from store.states import UserStates
 from callbacks import callbacks
 from buttons.reply.lents import lents_buttons_text
+from buttons.reply.lents.lents_buttons_text import skip_button_text
 dp.register_message_handler(
     on_start_command,
     commands='start',
@@ -51,6 +52,10 @@ dp.register_message_handler(
 dp.register_message_handler(
     on_delete_user_channel_command,
     Text(equals=lents_buttons_text.delete_channels_button_text),
+)
+dp.register_message_handler(
+    send_post_for_user,
+    Text(equals=skip_button_text)
 )
 
 if __name__ == '__main__':
