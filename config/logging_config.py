@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 if not os.path.isdir("logs"):
     os.mkdir("logs")
 
-handler = logging.FileHandler('logs/bot.log')
+handler = logging.FileHandler('logs/warning.log')
 
 handler.setLevel(logging.DEBUG)
 

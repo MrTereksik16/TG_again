@@ -6,6 +6,8 @@ from PIL import Image
 import os
 from config import config
 from config.logging_config import logger
+from database.models import PersonalChannel
+from database.queries.get_queries import get_personal_channel
 
 
 async def download_media(client, msg):
@@ -16,15 +18,16 @@ async def download_media(client, msg):
         filename = f'media/media_image_{msg.chat_id}_{msg.photo.id}.jpg'
         await client.download_media(msg.media, file=filename)
         return filename
+        compressed_filename = f'media/{msg.chat_id}_{msg.document.id}.mp4'
+        os.remove(filename)  # Удаление исходного файла после сжатия
+        return compressed_filename
 
     elif msg.media and isinstance(msg.media, MessageMediaDocument):
         attrs = msg.media.document.attributes
         if any([isinstance(attr, DocumentAttributeVideo) for attr in attrs]):
             filename = f'media/media_video_{msg.chat_id}_{msg.document.id}.mp4'
             await client.download_media(msg.media, file=filename)
-            compressed_filename = f'media/compressed_video_{msg.chat_id}_{msg.document.id}.mp4'
-            os.remove(filename)  # Удаление исходного файла после сжатия
-            return compressed_filename
+
 
 
 def compress_image(filename):
@@ -34,14 +37,18 @@ def compress_image(filename):
     return compressed_filename
 
 
-async def parse(channel_name: str, limit=10) -> list[dict]:
-    client = TelegramClient('user_session', config.API_ID, config.API_HASH).start(config.PHONE_NUMBER)
+async def parse(channel_name: str, limit=3) -> list[dict]:
+
+    client = await TelegramClient('user_session', config.API_ID, config.API_HASH).start(config.PHONE_NUMBER)
     channel = channel_name.replace('@', '')
     channel_name = channel
 
     try:
         channel = await client.get_entity(channel_name)
         messages = await client.get_messages(channel, limit=limit)
+
+        channel = await get_personal_channel(channel_name)
+        channel_id = channel.id
 
         data = []
         tasks = []
@@ -59,14 +66,17 @@ async def parse(channel_name: str, limit=10) -> list[dict]:
                 'media_id': md,
                 'chat_id': message.chat_id,
                 'channel_name': channel_name,
-                'grouped_id': message.grouped_id if message.grouped_id is not None else -1
+                'grouped_id': message.grouped_id if message.grouped_id is not None else -1,
+                'channel_id': channel_id
             })
             print(message.text)
 
-        df = pd.DataFrame(data)
+            df = pd.DataFrame(data)
+
+
         client.disconnect()
         return data
     except Exception as err:
         logger.error(f'Ошибка при парсинге сообщений канала {channel_name}:{err}')
     finally:
-        client.disconnect()
+        await client.disconnect()

@@ -1,10 +1,16 @@
-## Никита
-# TOKEN = '6274697186:AAFvHLkDA19G_wPTriryAkYd1c29t3wUZtk'
+# Никита
+# TOKEN = '5935810393:AAHjp8nGuO1vCSRSExH8gWWVYkiRDRim4no'
 # API_ID = 14026689
 # API_HASH = '4cda522efe7135f615827b09096fec01'
-# PHONE_NUMBER = '+224 (625) 083-393'
+# PHONE_NUMBER = '+381611700627'
 
+# DATABASE_USER = 'root'
+# DATABASE_PASSWORD = 'Nikita228'
+# DATABASE_HOST = 'localhost'
+# DATABASE_NAME = 'again2'
 #
+
+ADMINS = []
 
 
 # Вадим
@@ -17,4 +23,5 @@ DATABASE_USER = 'root'
 DATABASE_PASSWORD = 'ePPXyiUis-2309'
 DATABASE_HOST = 'localhost'
 DATABASE_NAME = 'again'
+
 #

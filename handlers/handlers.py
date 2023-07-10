@@ -1,20 +1,25 @@
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
-from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery, ReplyKeyboardRemove
+from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery, ReplyKeyboardRemove, \
+    ChatActions, InputFile
 from aiogram import Bot, Dispatcher, types
 from telethon import TelegramClient
-from telethon.tl.types import Channel
 from config import config
-from database.queries import create_user_channel, get_user, create_user, get_user_personal_channels, \
-    delete_personal_channel
-from config.logging_config import logger
+
+from database.queries.create_queries import *
+from database.queries.delete_queries import *
+from database.queries.get_queries import *
+from database.queries.update_queries import *
+
 from keyboards.inline.inline_keyboards import add_user_channels_inline_keyboard
 from keyboards.reply.lents.categories_keyboard import categories_control_keyboard
 from keyboards.reply.lents.personal_keyboard import personal_control_keyboard
 from utils.consts import *
 from store.states import UserStates
 from callbacks import callbacks
+from parse import parse
+from config.config import ADMINS
 
 client = TelegramClient('bot_session', config.API_ID, config.API_HASH)
 client.start(bot_token=config.TOKEN)
@@ -25,9 +30,10 @@ dp = Dispatcher(bot, storage=storage)
 
 async def on_start_command(message: Message, state: FSMContext):
     user_tg_id = message.from_user.id
+    last_post_id = 1
     user = await get_user(user_tg_id)
     if not user:
-        await create_user(user_tg_id)
+        await create_user(user_tg_id, last_post_id)
         await message.answer(START_MESSAGE_FOR_NEW)
     else:
         msg = await message.answer(START_MESSAGE_FOR_OLD, reply_markup=personal_control_keyboard)
@@ -37,6 +43,7 @@ async def on_start_command(message: Message, state: FSMContext):
 async def on_add_channels_command(message: Message, state: FSMContext):
     await message.answer(ADD_CHANNELS_MESSAGE, reply_markup=ReplyKeyboardRemove())
     await state.set_state(UserStates.GET_CHANNELS)
+    # await add_personal_post()
 
 
 async def on_add_channels_button_click(callback: CallbackQuery, state: FSMContext):
@@ -58,8 +65,10 @@ async def on_add_channels_message(message: Message, state: FSMContext):
             channel_tg_entity = await client.get_entity(link)
         except Exception as err:
             logger.error(f'Ошибка при получении сущности чата: {err}')
-
-        result = await create_user_channel(user_tg_id, channel_tg_entity)
+        if message.from_user.id not in ADMINS:
+            result = await create_user_channel(user_tg_id, channel_tg_entity)
+        else:
+            result = await create_general_channel_by_admin(user_tg_id, channel_tg_entity)
         if result == 'duplicate_entry':
             already_added.append(f'@{channel_tg_entity.username}')
         elif result:
@@ -78,14 +87,15 @@ async def on_add_channels_message(message: Message, state: FSMContext):
     await message.answer(message_text, reply_markup=personal_control_keyboard)
     await state.reset_state()
 
-    # Парсинг
-    # for username in added:
-    #     await parse(username)
+    for username in added:
+        data = await parse(username)
+        print(data)
+        await create_personal_post(data=data)
 
 
 async def on_list_command(message: Message):
     user_tg_id = message.from_user.id
-    channels = await get_user_personal_channels(user_tg_id)
+    channels = await get_user_channels(user_tg_id)
     usernames = []
     if not channels:
         await message.answer(EMPTY_LIST_CHANNELS_MESSAGE, reply_markup=add_user_channels_inline_keyboard)
@@ -97,7 +107,7 @@ async def on_list_command(message: Message):
 
 async def on_delete_user_channel_command(message: Message, state: FSMContext):
     user_tg_id = message.from_user.id
-    usernames = await get_user_personal_channels(user_tg_id)
+    usernames = await get_user_channels(user_tg_id)
 
     if not usernames:
         return await message.answer(EMPTY_LIST_CHANNELS_MESSAGE, reply_markup=add_user_channels_inline_keyboard)
@@ -152,3 +162,51 @@ async def go_to_categories(message: Message):
         answer = f'{CATEGORIES_EMOJI[category]}{category}\n'
     answer += '\n‼***Чтобы удалить категорию нажмите на нее второй раз***‼'
     await message.answer(answer, reply_markup=keyboard, parse_mode='Markdown')
+
+
+# Сомнительная конструкция. Потом обсудим
+async def send_post_for_user(message: Message):
+    user_id = message.from_user.id
+    chat_id = message.chat.id
+
+    personal_posts = await get_personal_posts(user_id)
+
+    try:
+        if personal_posts:
+            last_post_id = await get_user_last_post_id(user_id=message.from_user.id)
+
+            next_post = None
+            for post in personal_posts:
+                if post.id > last_post_id:
+                    next_post = post
+                    break
+
+            if next_post:
+                text = next_post.text
+                media_path = next_post.image_path
+                channel_name = next_post.personal_channel_connection.username
+
+                if media_path is not None:
+                    if media_path.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')):
+                        message_text = f"Text: {text}\nChannel Name: @{channel_name}"
+                        await bot.send_chat_action(chat_id, action=ChatActions.UPLOAD_PHOTO)
+                        await bot.send_photo(chat_id=chat_id, photo=InputFile(media_path), caption=message_text)
+
+                    elif media_path.lower().endswith(('.mp4', '.mov', '.avi')):
+                        message_text = f"Text: {text}\nChannel Name: @{channel_name}"
+                        await bot.send_chat_action(chat_id, action=ChatActions.UPLOAD_VIDEO)
+                        await bot.send_video(chat_id=chat_id, video=InputFile(media_path), caption=message_text)
+                elif text is None or text == '':
+                    if media_path.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')):
+                        message_text = f"Channel Name: @{channel_name}"
+                        await bot.send_chat_action(chat_id, action=ChatActions.UPLOAD_PHOTO)
+                        await bot.send_photo(chat_id=chat_id, photo=InputFile(media_path), caption=message_text)
+
+                    elif media_path.lower().endswith(('.mp4', '.mov', '.avi')):
+                        message_text = f"Channel Name: @{channel_name}"
+                        await bot.send_chat_action(chat_id, action=ChatActions.UPLOAD_VIDEO)
+                        await bot.send_video(chat_id=chat_id, video=InputFile(media_path), caption=message_text)
+                await update_user_last_post_id(user_id, post.id)
+    except Exception as err:
+        await message.answer('Посты закончились')
+        logger.error(err)
