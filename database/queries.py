@@ -9,10 +9,10 @@ from config.logging_config import logger
 # df = pd.read_csv('data.csv')
 
 
-async def create_user(user_tg_id):
+async def create_user(user_tg_id, last_post_id):
     session = Session()
     try:
-        user = User(user_tg_id=user_tg_id)
+        user = User(user_tg_id=user_tg_id, last_post_id=last_post_id)
         session.add(user)
         session.commit()
         return True
@@ -102,14 +102,15 @@ async def delete_personal_channel(username):
 
 async def add_personal_post(data):
     try:
-        channels = session.query(PersonalChannel).all()
-        for channel in channels:
-            channel_id = channel.id
-            for info in data:
-                personal_post = PersonalPost( text=info['text'], image_path=info['media_id'], channel_id=channel_id)
-                session.add(personal_post)
-                session.flush()
-                session.commit()
+        # channels = session.query(PersonalChannel).all()
+        # for channel in channels:
+        #     channel_id = channel.id
+        for info in data:
+            personal_post = PersonalPost(text=info['text'], image_path=info['media_id'], channel_id=info['channel_id'])
+            session.add(personal_post)
+            session.flush()
+        session.commit()
+
 
     except Exception as err:
         session.rollback()

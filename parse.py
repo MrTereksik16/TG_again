@@ -6,6 +6,7 @@ from PIL import Image
 import os
 from config import config
 from config.logging_config import logger
+from database.models import PersonalChannel, session
 
 
 async def download_media(client, msg):
@@ -44,6 +45,9 @@ async def parse(channel_name: str, limit=3) -> list[dict]:
         channel = await client.get_entity(channel_name)
         messages = await client.get_messages(channel, limit=limit)
 
+        channel_id = session.query(PersonalChannel).filter(PersonalChannel.username == channel_name).first().id
+
+
         data = []
         tasks = []
 
@@ -60,7 +64,8 @@ async def parse(channel_name: str, limit=3) -> list[dict]:
                 'media_id': md,
                 'chat_id': message.chat_id,
                 'channel_name': channel_name,
-                'grouped_id': message.grouped_id if message.grouped_id is not None else -1
+                'grouped_id': message.grouped_id if message.grouped_id is not None else -1,
+                'channel_id': channel_id
             })
             print(message.text)
 

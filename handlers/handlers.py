@@ -28,9 +28,10 @@ dp = Dispatcher(bot, storage=storage)
 
 async def on_start_command(message: Message, state: FSMContext):
     user_tg_id = message.from_user.id
+    last_post_id = 1
     user = await get_user(user_tg_id)
     if not user:
-        await create_user(user_tg_id)
+        await create_user(user_tg_id, last_post_id)
         await message.answer(START_MESSAGE_FOR_NEW)
     else:
         msg = await message.answer(START_MESSAGE_FOR_OLD, reply_markup=personal_control_keyboard)
@@ -85,7 +86,9 @@ async def on_add_channels_message(message: Message, state: FSMContext):
 
     for username in added:
         data = await parse(username)
+        print(data)
         await add_personal_post(data=data)
+
 
 
 
