@@ -3,6 +3,8 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy_utils import database_exists, create_database
 from config import config
+from config.logging_config import logger
+from utils.consts import CATEGORIES
 
 Base = declarative_base()
 database_properties = f'{config.DATABASE_USER}:{config.DATABASE_PASSWORD}@{config.DATABASE_HOST}/{config.DATABASE_NAME}'
@@ -12,8 +14,6 @@ if not database_exists(engine.url):
 
 # Создаем сессию, чтобы выполнять операции с базой данных
 Session = sessionmaker(bind=engine)
-
-session = Session()
 
 
 class User(Base):
@@ -99,14 +99,14 @@ class GeneralChannel(Base):
     general_post_connection = relationship('GeneralPost', back_populates='general_channel_connection')
 
     def __repr__(self):
-        return f"<GeneralChannels(username='{self.username}')>"
+        return f"<GeneralChannels(user_id='{self.user_id}', username='{self.username}')>"
 
 
 class GeneralPost(Base):
     __tablename__ = 'general_post'
-    id = Column(Integer, primary_key=True)
-    text = Column(String(50))
-    image_path = Column(String(50))
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    text = Column(Text)
+    image_path = Column(Text)
     likes = Column(Integer)
     dislikes = Column(Integer)
     general_channel_id = Column(Integer, ForeignKey("general_channel.id"))
@@ -117,5 +117,28 @@ class GeneralPost(Base):
         return f"<GeneralPost(text='{self.text}', image_path='{self.image_path}', likes='{self.likes}', dislikes='{self.dislikes}')>"
 
 
-session.commit()
-session.close()
+# Пересоздаёт бд
+# Base.metadata.drop_all(engine, checkfirst=True)
+
+
+
+
+def create_categories():
+    session = Session()
+    session.query(Category).delete()
+    for i in range(0, len(CATEGORIES)):
+        try:
+            new_category = Category(id=i + 1, name=CATEGORIES[i])
+            session.add(new_category)
+            session.flush()
+        except Exception as err:
+            session.rollback()
+            logger.error(err)
+    session.commit()
+    session.close()
+
+
+create_categories()
+
+
+Base.metadata.create_all(engine)

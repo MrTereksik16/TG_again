@@ -4,9 +4,11 @@ from telethon import TelegramClient
 from telethon.tl.types import MessageMediaPhoto, MessageMediaDocument, DocumentAttributeVideo
 from PIL import Image
 import os
+from config.config import ADMINS
 from config import config
 from config.logging_config import logger
-from database.models import PersonalChannel, session
+from database.models import PersonalChannel
+from database.queries.get_queries import get_personal_channel, get_general_channel
 
 
 async def download_media(client, msg):
@@ -36,17 +38,22 @@ def compress_image(filename):
     return compressed_filename
 
 
-async def parse(channel_name: str, limit=3) -> list[dict]:
-    client =  await TelegramClient('user_session', config.API_ID, config.API_HASH).start(config.PHONE_NUMBER)
+async def parse(user_id, channel_name: str, limit=3) -> list[dict]:
+
+    client = await TelegramClient('user_session', config.API_ID, config.API_HASH).start(config.PHONE_NUMBER)
     channel = channel_name.replace('@', '')
     channel_name = channel
+
 
     try:
         channel = await client.get_entity(channel_name)
         messages = await client.get_messages(channel, limit=limit)
-
-        channel_id = session.query(PersonalChannel).filter(PersonalChannel.username == channel_name).first().id
-
+        if user_id not in ADMINS:
+            channel = await get_personal_channel(channel_name)
+            channel_id = channel.id
+        else:
+            channel = await get_general_channel(channel_name)
+            channel_id = channel.id
 
         data = []
         tasks = []

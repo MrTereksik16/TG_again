@@ -1,14 +1,17 @@
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
-from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery, ReplyKeyboardRemove, ChatActions, InputFile
+from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery, ReplyKeyboardRemove, \
+    ChatActions, InputFile
 from aiogram import Bot, Dispatcher, types
 from telethon import TelegramClient
-from telethon.tl.types import Channel
 from config import config
-from database.queries import create_user_channel, get_user, create_user, get_user_personal_channels, \
-    delete_personal_channel, create_general_channel_by_admin, add_personal_post, send_post_for_user_lenta, get_last_post_id, update_last_post_id
-from config.logging_config import logger
+
+from database.queries.create_queries import *
+from database.queries.delete_queries import *
+from database.queries.get_queries import *
+from database.queries.update_queries import *
+
 from keyboards.inline.inline_keyboards import add_user_channels_inline_keyboard
 from keyboards.reply.lents.categories_keyboard import categories_control_keyboard
 from keyboards.reply.lents.personal_keyboard import personal_control_keyboard
@@ -17,7 +20,6 @@ from store.states import UserStates
 from callbacks import callbacks
 from parse import parse
 from config.config import ADMINS
-
 
 client = TelegramClient('bot_session', config.API_ID, config.API_HASH)
 client.start(bot_token=config.TOKEN)
@@ -42,6 +44,7 @@ async def on_add_channels_command(message: Message, state: FSMContext):
     await message.answer(ADD_CHANNELS_MESSAGE, reply_markup=ReplyKeyboardRemove())
     await state.set_state(UserStates.GET_CHANNELS)
     # await add_personal_post()
+
 
 async def on_add_channels_button_click(callback: CallbackQuery, state: FSMContext):
     chat_id = callback.message.chat.id
@@ -85,16 +88,17 @@ async def on_add_channels_message(message: Message, state: FSMContext):
     await state.reset_state()
 
     for username in added:
-        data = await parse(username)
+        data = await parse(user_id=message.from_user.id, channel_name=username)
         print(data)
-        await add_personal_post(data=data)
-
-
+        if message.from_user.id in ADMINS:
+            await create_general_post(data=data)
+        else:
+            await create_personal_post(data=data)
 
 
 async def on_list_command(message: Message):
     user_tg_id = message.from_user.id
-    channels = await get_user_personal_channels(user_tg_id)
+    channels = await get_user_channels(user_tg_id)
     usernames = []
     if not channels:
         await message.answer(EMPTY_LIST_CHANNELS_MESSAGE, reply_markup=add_user_channels_inline_keyboard)
@@ -106,7 +110,7 @@ async def on_list_command(message: Message):
 
 async def on_delete_user_channel_command(message: Message, state: FSMContext):
     user_tg_id = message.from_user.id
-    usernames = await get_user_personal_channels(user_tg_id)
+    usernames = await get_user_channels(user_tg_id)
 
     if not usernames:
         return await message.answer(EMPTY_LIST_CHANNELS_MESSAGE, reply_markup=add_user_channels_inline_keyboard)
@@ -131,7 +135,6 @@ async def on_delete_user_channel_button_click(callback: CallbackQuery, state: FS
     msg = context_data.get('delete_user_channels_message')
 
     if result:
-        logger.error(usernames)
         usernames.remove(username)
         await state.update_data(user_channels_usernames=usernames)
         edited_keyboard = InlineKeyboardMarkup()
@@ -158,57 +161,84 @@ async def get_categories_from_user(message: Message):
 async def go_to_categories(message: Message):
     keyboard = types.ReplyKeyboardMarkup(keyboard=categories_control_keyboard)
     answer = '***Наш список категорий, но он обязательно будет обновляться🤩***\n\n'
-    for i in range(0, len(CATEGORIES)):
-        answer += f'{CATEGORIES[i]}\n'
+    for category in CATEGORIES:
+        answer = f'{CATEGORIES_EMOJI[category]}{category}\n'
     answer += '\n‼***Чтобы удалить категорию нажмите на нее второй раз***‼'
     await message.answer(answer, reply_markup=keyboard, parse_mode='Markdown')
 
 
-async def send_post_for_user(message: Message):
+# Сомнительная конструкция. Потом обсудим
+async def send_post_for_user_in_personal_lenta(message: Message):
     user_id = message.from_user.id
     chat_id = message.chat.id
 
-    personal_posts = await send_post_for_user_lenta(user_id)
+    personal_posts = await get_personal_posts(user_id)
 
-    try:
-        if personal_posts:
-            last_post_id = await get_last_post_id(user_id=message.from_user.id)
+    # try:
+    if personal_posts:
+        last_post_id = await get_user_last_post_id(user_id=message.from_user.id)
 
-            next_post = None
-            for post in personal_posts:
-                if post.id > last_post_id:
-                    next_post = post
-                    break
+        next_post = None
+        for post in personal_posts:
+            if post.id > last_post_id:
+                next_post = post
+                break
+            else:
+                await message.answer("Посты закончились")
+                break
 
-            if next_post:
-                text = next_post.text
-                media_path = next_post.image_path
-                channel_name = next_post.personal_channel_connection.username
+        if next_post:
+            text = next_post.text
+            media_path = next_post.image_path
+            channel_name = next_post.personal_channel_connection.username
+
+            message_text = f"{text}\nChannel Name: @{channel_name}"
 
             if media_path is not None:
                 if media_path.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')):
-                    message_text = f"Text: {text}\nChannel Name: @{channel_name}"
                     await bot.send_chat_action(chat_id, action=ChatActions.UPLOAD_PHOTO)
                     await bot.send_photo(chat_id=chat_id, photo=InputFile(media_path), caption=message_text)
-
                 elif media_path.lower().endswith(('.mp4', '.mov', '.avi')):
-                    message_text = f"Text: {text}\nChannel Name: @{channel_name}"
                     await bot.send_chat_action(chat_id, action=ChatActions.UPLOAD_VIDEO)
                     await bot.send_video(chat_id=chat_id, video=InputFile(media_path), caption=message_text)
-            elif text is None or text == '':
+            else:
+                await bot.send_message(chat_id, text=message_text)
+
+            await update_user_last_post_id(user_id, post.id)
+
+async def send_post_for_user_in_recommendation(message: Message):
+    user_id = message.from_user.id
+    chat_id = message.chat.id
+    general_posts = await get_general_post()
+
+    if general_posts:
+        last_post_id = await get_user_last_post_id(user_id=message.from_user.id)
+
+        next_post = None
+        for post in general_posts:
+            if post.id > last_post_id:
+                next_post = post
+                break
+        if next_post:
+            text = next_post.text
+            media_path = next_post.image_path
+            channel_name = next_post.general_channel_connection.username
+
+            message_text = f"{text}\nChannel Name: @{channel_name}"
+
+            if media_path is not None:
                 if media_path.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')):
-                    message_text = f"Channel Name: @{channel_name}"
                     await bot.send_chat_action(chat_id, action=ChatActions.UPLOAD_PHOTO)
                     await bot.send_photo(chat_id=chat_id, photo=InputFile(media_path), caption=message_text)
-
                 elif media_path.lower().endswith(('.mp4', '.mov', '.avi')):
-                    message_text = f"Channel Name: @{channel_name}"
                     await bot.send_chat_action(chat_id, action=ChatActions.UPLOAD_VIDEO)
                     await bot.send_video(chat_id=chat_id, video=InputFile(media_path), caption=message_text)
-            await update_last_post_id(user_id, post.id)
-    except:
-        await message.answer('Посты закончились')
+            else:
+                await bot.send_message(chat_id, text=message_text)
 
-
-
+            await update_user_last_post_id(user_id, post.id)
+        else:
+            await message.answer("Посты закончились")
+    else:
+        await message.answer("Нет доступных постов")
 

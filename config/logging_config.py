@@ -6,11 +6,8 @@ logger = logging.getLogger(__name__)
 
 if not os.path.isdir("logs"):
     os.mkdir("logs")
-#Вадим
-# handler = logging.FileHandler('logs/bot.log')
 
-#Никита
-handler = logging.FileHandler('warning.log')
+handler = logging.FileHandler('logs/warning.log')
 
 handler.setLevel(logging.DEBUG)
 
