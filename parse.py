@@ -7,7 +7,6 @@ import os
 from config.config import ADMINS
 from config import config
 from config.logging_config import logger
-from database.models import PersonalChannel
 from database.queries.get_queries import get_personal_channel, get_general_channel
 
 
@@ -30,7 +29,6 @@ async def download_media(client, msg):
             await client.download_media(msg.media, file=filename)
 
 
-
 def compress_image(filename):
     image = Image.open(filename)
     compressed_filename = f'{filename}'
@@ -38,17 +36,15 @@ def compress_image(filename):
     return compressed_filename
 
 
-async def parse(user_id, channel_name: str, limit=3) -> list[dict]:
-
-    client = await TelegramClient('user_session', config.API_ID, config.API_HASH).start(config.PHONE_NUMBER)
+async def parse(user_tg_id, channel_name: str, limit=3) -> list[dict]:
+    client = TelegramClient('user_session', config.API_ID, config.API_HASH).start(config.PHONE_NUMBER)
     channel = channel_name.replace('@', '')
     channel_name = channel
-
 
     try:
         channel = await client.get_entity(channel_name)
         messages = await client.get_messages(channel, limit=limit)
-        if user_id not in ADMINS:
+        if user_tg_id not in ADMINS:
             channel = await get_personal_channel(channel_name)
             channel_id = channel.id
         else:
@@ -78,10 +74,6 @@ async def parse(user_id, channel_name: str, limit=3) -> list[dict]:
 
             df = pd.DataFrame(data)
 
-
-        client.disconnect()
         return data
     except Exception as err:
         logger.error(f'Ошибка при парсинге сообщений канала {channel_name}:{err}')
-    finally:
-        await client.disconnect()

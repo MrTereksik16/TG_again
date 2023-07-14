@@ -1,5 +1,7 @@
 from config.logging_config import logger
-from database.models import PersonalChannel, Session, User, UserChannel, GeneralChannel, GeneralPost
+from database.models import PersonalChannel, Session, User, UserChannel, Category, UserCategory, GeneralChannel, \
+    GeneralPost
+
 
 async def get_user(user_tg_id):
     session = Session()
@@ -16,7 +18,6 @@ async def get_personal_channel(channel_name):
     session = Session()
     try:
         channel = session.query(PersonalChannel).filter(PersonalChannel.username == channel_name).first()
-
         return channel
     except Exception as err:
         logger.error(f'Ошибка при получении канала пользователя: {err}')
@@ -91,7 +92,6 @@ async def get_general_post():
 
 
 
-
 async def get_user_last_post_id(user_id):
     session = Session()
     try:
@@ -104,3 +104,25 @@ async def get_user_last_post_id(user_id):
     except Exception as err:
         session.rollback()
         logger.error(f'Ошибка при получении последнего ID поста пользователя: {err}')
+
+
+async def get_categories():
+    session = Session()
+    try:
+        categories = session.query(Category).all()
+        return [f'{category.id}. {category.name}{category.emoji}' for category in categories]
+    except Exception as err:
+        logger.error(f'Ошибка при получении категорий: {err}')
+
+
+async def get_user_categories(user_tg_id):
+    session = Session()
+    user_categories = []
+    try:
+        user_categories = session.query(Category).select_from(User).join(UserCategory).join(Category).filter(User.user_tg_id == user_tg_id)
+        print(user_categories)
+    except Exception as err:
+        logger.error(f'Ошибка при получении пользовательских категорий: {err}')
+    finally:
+        session.close()
+        return [f'{category.id}. {category.name}{category.emoji}' for category in user_categories]

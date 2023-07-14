@@ -1,0 +1,4 @@
+from handlers.categories_handlers import register_categories_handlers
+from handlers.recommendations_handlers import register_recommendations_handlers
+from handlers.personal_handlers import register_personal_handlers
+from handlers.general_handlers import register_generals_handlers
