@@ -4,6 +4,7 @@ from aiogram.dispatcher.filters import Text
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, ReplyKeyboardRemove, CallbackQuery
 
 from buttons.reply import reply_buttons_text
+from parse import parse
 from utils.consts import answers
 
 from callbacks import callbacks
@@ -12,8 +13,9 @@ from database.queries.create_queries import *
 from database.queries.delete_queries import delete_personal_channel
 from database.queries.get_queries import get_user_channels
 from keyboards.inline.inline_keyboards import add_user_channels_inline_keyboard
-from keyboards.reply.personal_keyboard import personal_control_keyboard
+from keyboards.reply.personal_keyboard import *
 from store.states import UserStates
+from utils.helpers import send_post_for_user_in_personal_feed
 
 
 async def on_add_channels_message(message: Message, state: FSMContext):
@@ -65,13 +67,12 @@ async def on_channels_message(message: Message, state: FSMContext):
     if already_added:
         message_text += answers.CHANNELS_ALREADY_ADDED_MESSAGE.format(channels_already_added=', '.join(already_added))
 
-    await message.answer(message_text, reply_markup=personal_control_keyboard)
-    await state.reset_state()
-    #
-    # for username in added:
-    #     data = await parse(username)
-    #     print(data)
-    #     await create_personal_post(data=data)
+    await message.answer(message_text, reply_markup=personal_start_control_keyboard)
+    await state.set_state(UserStates.PERSONAL_FEED)
+
+    for username in added:
+        data = await parse(message, username, limit=10)
+        await create_personal_post(data=data)
 
 
 async def on_list_channels_message(message: Message):
@@ -83,7 +84,7 @@ async def on_list_channels_message(message: Message):
     else:
         for channel in channels:
             usernames.append(f'@{channel}')
-        await message.answer(answers.ADDED_CHANNELS_MESSAGE.format(usernames=', '.join(usernames)))
+        await message.answer(answers.ADDED_CHANNELS_MESSAGE.format(usernames=', '.join(usernames)), reply_markup=personal_start_control_keyboard)
 
 
 async def on_delete_user_channel_message(message: Message, state: FSMContext):
@@ -91,7 +92,8 @@ async def on_delete_user_channel_message(message: Message, state: FSMContext):
     usernames = await get_user_channels(user_tg_id)
 
     if not usernames:
-        return await message.answer(answers.EMPTY_USER_LIST_CHANNELS_MESSAGE, reply_markup=add_user_channels_inline_keyboard)
+        return await message.answer(answers.EMPTY_USER_LIST_CHANNELS_MESSAGE,
+                                    reply_markup=add_user_channels_inline_keyboard)
 
     keyboard = InlineKeyboardMarkup()
 
@@ -101,7 +103,7 @@ async def on_delete_user_channel_message(message: Message, state: FSMContext):
     await state.update_data(user_channels_usernames=usernames)
     await state.update_data(delete_user_channels_message=msg)
     dp.register_callback_query_handler(on_delete_user_channel_button_click,
-                                       Text(startswith=callbacks.DELETE_USER_CHANNEL))
+                                       Text(startswith=callbacks.DELETE_USER_CHANNEL), state=UserStates.PERSONAL_FEED)
 
 
 async def on_delete_user_channel_button_click(callback: CallbackQuery, state: FSMContext):
@@ -129,23 +131,38 @@ async def on_delete_user_channel_button_click(callback: CallbackQuery, state: FS
         await callback.answer('Не удалось удалить канал')
 
 
+async def on_next_message(message: Message):
+    keyboard = personal_control_keyboard
+    await send_post_for_user_in_personal_feed(message, keyboard)
+
+
 def register_personal_handlers(dp: Dispatcher):
     dp.register_message_handler(
         on_add_channels_message,
         Text(equals=reply_buttons_text.ADD_PERSONAL_CHANNELS_BUTTON_TEXT),
+        state=UserStates.PERSONAL_FEED
     )
 
     dp.register_callback_query_handler(
         on_add_channels_inline_click,
         Text(callbacks.ADD_USER_CHANNELS),
+        state=UserStates.PERSONAL_FEED
     )
 
     dp.register_message_handler(
         on_list_channels_message,
         Text(equals=reply_buttons_text.LIST_CHANNELS_BUTTON_TEXT),
+        state=UserStates.PERSONAL_FEED
     )
 
     dp.register_message_handler(
         on_delete_user_channel_message,
         Text(equals=reply_buttons_text.DELETE_CHANNELS_BUTTON_TEXT),
+        state=UserStates.PERSONAL_FEED
+    )
+
+    dp.register_message_handler(
+        on_next_message,
+        Text(reply_buttons_text.SKIP_BUTTON_TEXT),
+        state=UserStates.PERSONAL_FEED
     )

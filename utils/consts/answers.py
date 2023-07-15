@@ -9,3 +9,4 @@ CHANNELS_NOT_ADDED_MESSAGE = 'Не удалось добавить каналы:
 CHANNELS_ALREADY_ADDED_MESSAGE = 'Каналы уже были добавлены ранее: {channels_already_added}\n'
 POST_FROM_CHANNEL_MESSAGE = '\n\nПост с канала @{channel_username}'
 ADDED_CHANNELS_MESSAGE = 'Добавленные каналы:\n{usernames}'
+POST_ARE_OVER = 'Посты закончились ☹'

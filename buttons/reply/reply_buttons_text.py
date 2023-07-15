@@ -4,7 +4,7 @@ TO_PERSONAL_BUTTON_TEXT = 'Личная лента 🌟'
 TO_ADMIN_PANEL_BUTTON_TEXT = 'Админ панель 👑'
 
 SKIP_BUTTON_TEXT = 'Дальше ➤'
-START_BUTTON_TEXT = 'Начнём'
+START_BUTTON_TEXT = 'Старт'
 
 LIST_CHANNELS_BUTTON_TEXT = 'Список📋'
 ADD_PERSONAL_CHANNELS_BUTTON_TEXT = 'Добавить➕'

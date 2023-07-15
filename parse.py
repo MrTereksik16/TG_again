@@ -1,5 +1,9 @@
+import json
+
 import pandas as pd
 import asyncio
+
+from aiogram.types import Message
 from telethon import TelegramClient
 from telethon.tl.types import MessageMediaPhoto, MessageMediaDocument, DocumentAttributeVideo
 from PIL import Image
@@ -7,6 +11,7 @@ import os
 from config.config import ADMINS
 from config import config
 from config.logging_config import logger
+from create_bot import bot
 from database.queries.get_queries import get_personal_channel, get_general_channel
 
 
@@ -36,21 +41,23 @@ def compress_image(filename):
     return compressed_filename
 
 
-async def parse(user_tg_id, channel_name: str, limit=3) -> list[dict]:
-    client = TelegramClient('user_session', config.API_ID, config.API_HASH).start(config.PHONE_NUMBER)
-    channel = channel_name.replace('@', '')
-    channel_name = channel
-
+async def parse(msg: Message, channel_name: str, limit=3) -> list[dict]:
     try:
+        client = TelegramClient('user_session', config.API_ID, config.API_HASH)
+        await client.start(config.PHONE_NUMBER)
+        channel = channel_name.replace('@', '')
+
+        channel_name = channel
+        chat_id = msg.chat.id
+
+        status_message = await bot.send_message(chat_id, f'Получаем посты из канала @{channel_name}...')
+        status_message_id = status_message.message_id
         channel = await client.get_entity(channel_name)
         messages = await client.get_messages(channel, limit=limit)
-        if user_tg_id not in ADMINS:
-            channel = await get_personal_channel(channel_name)
-            channel_id = channel.id
-        else:
-            channel = await get_general_channel(channel_name)
-            channel_id = channel.id
+        channel = await get_personal_channel(channel_name)
+        channel_id = channel.id
 
+        messages = list(reversed(messages))
         data = []
         tasks = []
 
@@ -65,15 +72,12 @@ async def parse(user_tg_id, channel_name: str, limit=3) -> list[dict]:
                 'id': message.id,
                 'text': f"{message.text}".replace("'", ""),
                 'media_id': md,
-                'chat_id': message.chat_id,
                 'channel_name': channel_name,
                 'grouped_id': message.grouped_id if message.grouped_id is not None else -1,
-                'channel_id': channel_id
+                'channel_id': channel_id,
             })
-            print(message.text)
-
+            data.append({'chat_id': chat_id, 'status_message_id': status_message_id})
             df = pd.DataFrame(data)
-
         return data
     except Exception as err:
-        logger.error(f'Ошибка при парсинге сообщений канала {channel_name}:{err}')
+        logger.error(f'Ошибка при парсинге сообщений канала {channel_name}: {err}')

@@ -1,4 +1,7 @@
+from aiogram.types import Message
 from telethon.tl.types import Channel
+
+from create_bot import bot
 from utils.consts import errors
 from config.logging_config import logger
 from database.models import Session, GeneralChannel, UserChannel, User, PersonalPost, PersonalChannel, UserCategory, \
@@ -65,14 +68,21 @@ async def create_general_channel_by_admin(user_tg_id, channel_tg_entity: Channel
 async def create_personal_post(data):
     session = Session()
     try:
+        status_message_id = data[-1]['status_message_id']
+        chat_id = data[-1]['chat_id']
+        channel_name = data[0]['channel_name']
         for info in data:
             personal_post = PersonalPost(text=info['text'], image_path=info['media_id'], channel_id=info['channel_id'])
             session.add(personal_post)
             session.flush()
         session.commit()
+        await bot.edit_message_text(f'Посты с канала @{channel_name} получены 👍', chat_id, status_message_id)
+        return True
     except Exception as err:
         logger.error(f'Ошибка при добавлении пользовательского поста: {err}')
-
+        return False
+    finally:
+        session.close()
 
 async def create_general_post(data):
     session = Session()
@@ -90,9 +100,10 @@ async def create_general_post(data):
         session.close()
 
 
-async def create_user_category(user_tg_id: int, category_id: int):
+async def create_user_category(message: Message, category_id: int):
     session = Session()
     try:
+        user_tg_id = message.from_user.id
         new_user_category = UserCategory(user_id=user_tg_id, category_id=category_id)
         session.add(new_user_category)
         session.commit()

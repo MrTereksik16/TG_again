@@ -60,6 +60,7 @@ class PersonalPost(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     text = Column(Text)
     image_path = Column(Text)
+    entities = Column(Text)
     channel_id = Column(Integer, ForeignKey('personal_channel.id'))
 
     personal_channel_connection = relationship('PersonalChannel', back_populates='personal_post_connection')
@@ -121,7 +122,6 @@ class GeneralPost(Base):
 # Пересоздаёт бд
 # Base.metadata.drop_all(engine, checkfirst=True)
 
-
 session = Session()
 query = "SET NAMES 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'"
 session.execute(text(query))
@@ -145,4 +145,3 @@ def create_categories():
 
 
 create_categories()
-
