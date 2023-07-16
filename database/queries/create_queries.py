@@ -25,10 +25,15 @@ async def create_user(user_tg_id, last_post_id):
 async def create_user_channel(user_tg_id, username):
     session = Session()
     try:
-        new_personal_channel = PersonalChannel(username=username)
-        session.add(new_personal_channel)
+        personal_channel = session.query(PersonalChannel).filter_by(username=username).first()
         session.flush()
-        channel_id = new_personal_channel.id
+
+        if not personal_channel:
+            personal_channel = PersonalChannel(username=username)
+            session.add(personal_channel)
+            session.flush()
+
+        channel_id = personal_channel.id
         session.add(UserChannel(user_id=user_tg_id, channel_id=channel_id))
         session.commit()
         return True
@@ -48,12 +53,8 @@ async def create_general_channel_by_admin(user_tg_id, channel_tg_entity: Channel
         new_general_channel = GeneralChannel(username=username)
         session.add(new_general_channel)
         session.flush()
-        # channel_id = new_general_channel.id
-        # session.add(GeneralChannel(user_id=user_tg_id, channel_id=channel_id))
-        # session.flush()
         channel_id = new_general_channel.id
         session.add(UserChannel(user_id=user_tg_id, channel_id=channel_id))
-
         session.commit()
         return True
     except Exception as err:
