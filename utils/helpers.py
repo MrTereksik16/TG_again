@@ -1,10 +1,8 @@
 from aiogram.types import Message, ChatActions, InputFile
-
-from config.logging_config import logger
 from create_bot import bot
 from database.queries.get_queries import *
 from database.queries.update_queries import update_user_last_post_id
-from keyboards.inline.inline_keyboards import add_user_channels_inline_keyboard
+from keyboards.personal.inline.personal_inline_keyboards import add_user_channels_inline_keyboard
 from parse import parse
 from utils.consts import answers
 
@@ -39,13 +37,13 @@ async def send_post_for_user_in_personal_feed(message: Message, keyboard):
                     if media_path.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')):
                         await bot.send_chat_action(chat_id, action=ChatActions.UPLOAD_PHOTO)
                         await bot.send_photo(chat_id=chat_id, photo=InputFile(media_path), caption=message_text,
-                                             reply_markup=keyboard, parse_mode='Markdown')
+                                             reply_markup=keyboard)
                     elif media_path.lower().endswith(('.mp4', '.mov', '.avi')):
                         await bot.send_chat_action(chat_id, action=ChatActions.UPLOAD_VIDEO)
                         await bot.send_video(chat_id=chat_id, video=InputFile(media_path), caption=message_text,
-                                             reply_markup=keyboard, parse_mode='Markdown')
+                                             reply_markup=keyboard)
                 else:
-                    await bot.send_message(chat_id, text=message_text, reply_markup=keyboard, parse_mode='Markdown')
+                    await bot.send_message(chat_id, text=message_text, reply_markup=keyboard)
             except Exception as err:
                 if 'Message caption is too long' in str(err):
                     await bot.answer('Упс. Пост слишком большой', reply_markup=keyboard)

@@ -101,10 +101,9 @@ async def create_general_post(data):
         session.close()
 
 
-async def create_user_category(message: Message, category_id: int):
+async def create_user_category(user_tg_id, category_id: int):
     session = Session()
     try:
-        user_tg_id = message.from_user.id
         new_user_category = UserCategory(user_id=user_tg_id, category_id=category_id)
         session.add(new_user_category)
         session.commit()

@@ -1,38 +1,48 @@
 from aiogram import Dispatcher, types
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, ReplyKeyboardRemove, CallbackQuery
-
-from buttons.reply import reply_buttons_text
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardRemove, CallbackQuery
 from parse import parse
 from utils.consts import answers
-
 from callbacks import callbacks
-from create_bot import dp, client, bot
+from create_bot import dp, client
 from database.queries.create_queries import *
 from database.queries.delete_queries import delete_personal_channel
 from database.queries.get_queries import get_user_channels
-from keyboards.inline.inline_keyboards import add_user_channels_inline_keyboard
-from keyboards.reply.personal_keyboard import *
-from store.states import UserStates
+from keyboards.personal.inline.personal_inline_keyboards import add_user_channels_inline_keyboard
+from keyboards.personal.reply.personal_reply_keyboards import *
+from store.states import PersonalStates
 from utils.helpers import send_post_for_user_in_personal_feed
+from keyboards import personal_reply_buttons_texts, general_reply_buttons_texts
+
+
+async def on_personal_feed_message(message: Message, state: FSMContext):
+    user_tg_id = message.from_user.id
+    user_channels = await get_user_channels(user_tg_id)
+    await state.set_state(PersonalStates.PERSONAL_FEED)
+
+    if user_channels:
+        await on_list_channels_message(message)
+    else:
+        await on_add_channels_message(message, state)
+
 
 
 async def on_add_channels_message(message: Message, state: FSMContext):
     await message.answer(answers.ADD_CHANNELS_MESSAGE, reply_markup=ReplyKeyboardRemove())
-    await state.set_state(UserStates.GET_USER_CHANNELS)
+    await state.set_state(PersonalStates.GET_USER_CHANNELS)
 
     dp.register_message_handler(
         on_channels_message,
         content_types=types.ContentType.TEXT,
-        state=UserStates.GET_USER_CHANNELS
+        state=PersonalStates.GET_USER_CHANNELS
     )
 
 
 async def on_add_channels_inline_click(callback: CallbackQuery, state: FSMContext):
     chat_id = callback.message.chat.id
     await bot.send_message(chat_id, answers.ADD_CHANNELS_MESSAGE, reply_markup=ReplyKeyboardRemove())
-    await state.set_state(UserStates.GET_USER_CHANNELS)
+    await state.set_state(PersonalStates.GET_USER_CHANNELS)
     await callback.answer()
 
 
@@ -68,7 +78,7 @@ async def on_channels_message(message: Message, state: FSMContext):
         message_text += answers.CHANNELS_ALREADY_ADDED_MESSAGE.format(channels_already_added=', '.join(already_added))
 
     await message.answer(message_text, reply_markup=personal_start_control_keyboard)
-    await state.set_state(UserStates.PERSONAL_FEED)
+    await state.set_state(PersonalStates.PERSONAL_FEED)
 
     for username in added:
         data = await parse(message, username, limit=10)
@@ -103,7 +113,7 @@ async def on_delete_user_channel_message(message: Message, state: FSMContext):
     await state.update_data(user_channels_usernames=usernames)
     await state.update_data(delete_user_channels_message=msg)
     dp.register_callback_query_handler(on_delete_user_channel_button_click,
-                                       Text(startswith=callbacks.DELETE_USER_CHANNEL), state=UserStates.PERSONAL_FEED)
+                                       Text(startswith=callbacks.DELETE_USER_CHANNEL), state=PersonalStates.PERSONAL_FEED)
 
 
 async def on_delete_user_channel_button_click(callback: CallbackQuery, state: FSMContext):
@@ -138,31 +148,37 @@ async def on_next_message(message: Message):
 
 def register_personal_handlers(dp: Dispatcher):
     dp.register_message_handler(
+        on_personal_feed_message,
+        Text(equals=general_reply_buttons_texts.TO_PERSONAL_BUTTON_TEXT),
+        state='*'
+    )
+
+    dp.register_message_handler(
         on_add_channels_message,
-        Text(equals=reply_buttons_text.ADD_PERSONAL_CHANNELS_BUTTON_TEXT),
-        state=UserStates.PERSONAL_FEED
+        Text(equals=personal_reply_buttons_texts.ADD_USER_CHANNELS_BUTTON_TEXT),
+        state=PersonalStates.PERSONAL_FEED
     )
 
     dp.register_callback_query_handler(
         on_add_channels_inline_click,
         Text(callbacks.ADD_USER_CHANNELS),
-        state=UserStates.PERSONAL_FEED
+        state=PersonalStates.PERSONAL_FEED
     )
 
     dp.register_message_handler(
         on_list_channels_message,
-        Text(equals=reply_buttons_text.LIST_CHANNELS_BUTTON_TEXT),
-        state=UserStates.PERSONAL_FEED
+        Text(equals=personal_reply_buttons_texts.LIST_USER_CHANNELS_BUTTON_TEXT),
+        state=PersonalStates.PERSONAL_FEED
     )
 
     dp.register_message_handler(
         on_delete_user_channel_message,
-        Text(equals=reply_buttons_text.DELETE_CHANNELS_BUTTON_TEXT),
-        state=UserStates.PERSONAL_FEED
+        Text(equals=personal_reply_buttons_texts.DELETE_USER_CHANNELS_BUTTON_TEXT),
+        state=PersonalStates.PERSONAL_FEED
     )
 
     dp.register_message_handler(
         on_next_message,
-        Text(reply_buttons_text.SKIP_BUTTON_TEXT),
-        state=UserStates.PERSONAL_FEED
+        Text(personal_reply_buttons_texts.SKIP_BUTTON_TEXT),
+        state=PersonalStates.PERSONAL_FEED
     )
