@@ -62,8 +62,10 @@ async def parse(msg: Message, channel_name: str, limit=3) -> list[dict]:
 
         status_message = await bot.send_message(chat_id, f'Получаем посты из канала @{channel_name}...')
         status_message_id = status_message.message_id
+
         channel = await client.get_entity(channel_name)
         messages = await client.get_messages(channel, limit=limit)
+
         channel = await get_personal_channel(channel_name)
         channel_id = channel.id
 
@@ -77,7 +79,6 @@ async def parse(msg: Message, channel_name: str, limit=3) -> list[dict]:
             tasks.append(task)
 
         media_data = await asyncio.gather(*tasks)
-
         for message, md in zip(messages, media_data):
             data.append({
                 'id': message.id,
@@ -89,7 +90,10 @@ async def parse(msg: Message, channel_name: str, limit=3) -> list[dict]:
                 'chat_id': chat_id,
                 'status_message_id': status_message_id
             })
+<<<<<<< HEAD
 
+=======
+>>>>>>> 4852f8b8fb388fef4a0ce1e5cd16aea8c02e0a54
         df = pd.DataFrame(data)
         client.disconnect()
         return data
