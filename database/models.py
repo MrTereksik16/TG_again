@@ -1,16 +1,16 @@
-from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, Text
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, Text, Unicode, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy_utils import database_exists, create_database
 from config import config
 from config.logging_config import logger
-from utils.consts import CATEGORIES
+from utils.consts.categories import CATEGORIES, CATEGORIES_EMOJI
 
 Base = declarative_base()
 database_properties = f'{config.DATABASE_USER}:{config.DATABASE_PASSWORD}@{config.DATABASE_HOST}/{config.DATABASE_NAME}'
 engine = create_engine(f'mysql+pymysql://{database_properties}', echo=True)
 if not database_exists(engine.url):
-    create_database(engine.url)
+    create_database(engine.url, 'utf8mb4')
 
 # Создаем сессию, чтобы выполнять операции с базой данных
 Session = sessionmaker(bind=engine)
@@ -80,7 +80,8 @@ class UserCategory(Base):
 class Category(Base):
     __tablename__ = 'category'
     id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String(50))
+    name = Column(String(30), unique=True, nullable=False)
+    emoji = Column(String(10), nullable=False)
 
     user_category_connection = relationship('UserCategory', back_populates='category_connection')
     general_channel_connection = relationship('GeneralChannel', back_populates='category_connection')
@@ -121,14 +122,19 @@ class GeneralPost(Base):
 # Base.metadata.drop_all(engine, checkfirst=True)
 
 
+session = Session()
+query = "SET NAMES 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'"
+session.execute(text(query))
+session.commit()
+
+Base.metadata.create_all(engine)
 
 
 def create_categories():
     session = Session()
-    session.query(Category).delete()
     for i in range(0, len(CATEGORIES)):
         try:
-            new_category = Category(id=i + 1, name=CATEGORIES[i])
+            new_category = Category(id=i + 1, name=CATEGORIES[i], emoji=f'{CATEGORIES_EMOJI[CATEGORIES[i]]}')
             session.add(new_category)
             session.flush()
         except Exception as err:
@@ -140,5 +146,3 @@ def create_categories():
 
 create_categories()
 
-
-Base.metadata.create_all(engine)

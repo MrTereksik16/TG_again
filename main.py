@@ -1,64 +1,25 @@
 import logging
 from aiogram import types
-from aiogram.dispatcher.filters import Text
 from aiogram.utils import executor
-from config.startup_config import set_default_commands
 from config.logging_config import logger
-from handlers.handlers import dp, on_add_channels_command, on_list_command, on_start_command, on_add_channels_message, \
-    on_delete_user_channel_command, on_add_channels_button_click, send_post_for_user_in_personal_lenta, send_post_for_user_in_recommendation
-from store.states import UserStates
-from callbacks import callbacks
-from buttons.reply.lents import lents_buttons_text
-from buttons.reply.lents.lents_buttons_text import skip_button_text
-dp.register_message_handler(
-    on_start_command,
-    commands='start',
-)
+from create_bot import dp
+from handlers import register_personal_handlers, register_recommendations_handlers, register_categories_handlers, \
+    register_generals_handlers
 
-dp.register_message_handler(
-    on_add_channels_command,
-    commands='add_channels'
-)
 
-dp.register_message_handler(
-    on_add_channels_command,
-    Text(equals=lents_buttons_text.add_channels_button_text),
+async def set_default_commands(dp):
+    await dp.bot.set_my_commands([
+        types.BotCommand("start", "К рекомендациям"),
+    ])
 
-)
-
-dp.register_callback_query_handler(on_add_channels_button_click, Text(callbacks.ADD_USER_CHANNELS))
-
-dp.register_message_handler(
-    on_add_channels_message,
-    state=UserStates.GET_CHANNELS,
-    content_types=types.ContentType.TEXT,
-)
-
-dp.register_message_handler(
-    on_list_command,
-    commands='list',
-)
-
-dp.register_message_handler(
-    on_list_command,
-    Text(equals=lents_buttons_text.list_channels_button_text),
-)
-
-dp.register_message_handler(
-    on_delete_user_channel_command,
-    commands='delete_channels'
-)
-dp.register_message_handler(
-    on_delete_user_channel_command,
-    Text(equals=lents_buttons_text.delete_channels_button_text),
-)
-dp.register_message_handler(
-    send_post_for_user_in_recommendation,
-    Text(equals=skip_button_text)
-)
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
     logger.warning("Starting the bot...")
+
+    register_recommendations_handlers(dp)
+    register_categories_handlers(dp)
+    register_personal_handlers(dp)
+    register_generals_handlers(dp)
 
     executor.start_polling(dp, skip_updates=True, on_startup=set_default_commands)
