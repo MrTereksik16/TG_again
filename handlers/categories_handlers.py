@@ -15,6 +15,7 @@ from store.states import CategoriesStates
 from utils.helpers import convert_categories_to_string
 from keyboards import general_reply_buttons_texts, categories_reply_buttons_texts
 
+
 async def on_categories_feed_message(message: Message, state: FSMContext):
     user_tg_id = message.from_user.id
     user_categories = await get_user_categories(user_tg_id)

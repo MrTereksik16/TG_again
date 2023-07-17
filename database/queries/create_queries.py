@@ -69,8 +69,8 @@ async def create_general_channel_by_admin(user_tg_id, channel_tg_entity: Channel
 async def create_personal_post(data):
     session = Session()
     try:
-        status_message_id = data[-1]['status_message_id']
-        chat_id = data[-1]['chat_id']
+        status_message_id = data[0]['status_message_id']
+        chat_id = data[0]['chat_id']
         channel_name = data[0]['channel_name']
         for info in data:
             personal_post = PersonalPost(text=info['text'], image_path=info['media_id'], channel_id=info['channel_id'])
