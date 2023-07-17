@@ -66,7 +66,11 @@ async def on_channels_message(message: Message, state: FSMContext):
             continue
 
         username = channel_tg_entity.username
-        result = await create_user_channel(user_tg_id, username)
+        if message.from_user.id not in ADMINS:
+            result = await create_user_channel(user_tg_id, username)
+        else:
+            result = await create_general_channel_by_admin(user_tg_id, username)
+
         if result == errors.DUPLICATE_ENTRY_ERROR:
             already_added.append(f'@{channel_tg_entity.username}')
         elif result:
@@ -96,8 +100,11 @@ async def on_channels_message(message: Message, state: FSMContext):
     # await state.set_state(PersonalStates.PERSONAL_FEED)
 
     for username in added:
-        data = await parse(message, username, limit=10)
-        await create_personal_post(data=data)
+        data = await parse(message, username, limit=5)
+        if message.from_user.id in ADMINS:
+            await create_general_post(data=data)
+        else:
+            await create_personal_post(data=data)
     await message.answer(message_text, reply_markup=personal_start_control_keyboard)
     await state.set_state(PersonalStates.PERSONAL_FEED)
 

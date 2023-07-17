@@ -90,10 +90,7 @@ async def parse(msg: Message, channel_name: str, limit=3) -> list[dict]:
                 'chat_id': chat_id,
                 'status_message_id': status_message_id
             })
-<<<<<<< HEAD
 
-=======
->>>>>>> 4852f8b8fb388fef4a0ce1e5cd16aea8c02e0a54
         df = pd.DataFrame(data)
         client.disconnect()
         return data

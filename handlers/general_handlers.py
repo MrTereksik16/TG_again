@@ -30,6 +30,7 @@ async def on_start_message(message: Message, state: FSMContext):
         await send_post_for_user_in_personal_feed(message, keyboard)
 
 
+
 async def on_admin_panel_message(message: Message, state: FSMContext):
     await state.reset_state()
     await message.answer('Админ панель', reply_markup=admin_reply_keyboards.admin_panel_control_keyboard)
@@ -47,3 +48,4 @@ def register_generals_handlers(dp):
         Text(equals=general_reply_buttons_texts.TO_ADMIN_PANEL_BUTTON_TEXT),
         state='*'
     )
+
