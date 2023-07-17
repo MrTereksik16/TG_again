@@ -1,9 +1,11 @@
+from sqlalchemy import text, Column
+
 from config.logging_config import logger
 from database.models import PersonalChannel, Session, User, UserChannel, Category, UserCategory, GeneralChannel, \
-    GeneralPost
+    GeneralPost, PersonalPost
 
 
-async def get_user(user_tg_id):
+async def get_user(user_tg_id: int):
     session = Session()
     try:
         user = session.get(User, user_tg_id)
@@ -14,7 +16,7 @@ async def get_user(user_tg_id):
         session.close()
 
 
-async def get_personal_channel(channel_name):
+async def get_personal_channel(channel_name: str):
     session = Session()
     try:
         channel = session.query(PersonalChannel).filter(PersonalChannel.username == channel_name).first()
@@ -25,7 +27,7 @@ async def get_personal_channel(channel_name):
         session.close()
 
 
-async def get_user_channels(user_tg_id):
+async def get_user_channels(user_tg_id: int):
     session = Session()
     try:
         records = session.query(PersonalChannel.username).select_from(User).join(UserChannel).join(
@@ -41,8 +43,7 @@ async def get_user_channels(user_tg_id):
         session.close()
 
 
-
-async def get_general_channel(channel_name):
+async def get_general_channel(channel_name: str):
     session = Session()
     try:
         channel = session.query(GeneralChannel).filter(GeneralChannel.username == channel_name).first()
@@ -55,21 +56,21 @@ async def get_general_channel(channel_name):
 
 
 # Надо допилить
-async def get_personal_posts(user_id):
+async def get_personal_posts(user_tg_id: int):
     session = Session()
     try:
-        user_channels = session.query(UserChannel).filter_by(user_id=user_id).all()
+        query = f'select personal_post.id, personal_channel.username, personal_post.text, personal_post.image_path from user join user_channel on user_channel.user_id = user.user_tg_id join personal_post on user_channel.channel_id = personal_post.channel_id join personal_channel on personal_channel.id = user_channel.channel_id where user.user_tg_id = {user_tg_id}'
+        records = session.execute(text(query))
         personal_posts = []
-
-        for user_channel in user_channels:
-            channel = user_channel.personal_channel_connection
-            personal_posts.extend(channel.personal_post_connection)
-
+        for record in records:
+            personal_posts.append(record)
+        logger.error(personal_posts)
         return personal_posts
 
     except Exception as err:
         session.rollback()
         logger.error(f'Ошибка при получении постов из пользовательских каналов: {err}')
+
 
 async def get_general_post():
     session = Session()
@@ -90,12 +91,10 @@ async def get_general_post():
         logger.error(f'Ошибка при получении общего поста: {err}')
 
 
-
-
-async def get_user_last_post_id(user_id):
+async def get_user_last_post_id(user_tg_id: int):
     session = Session()
     try:
-        user = session.query(User).get(user_id)
+        user = session.query(User).get(user_tg_id)
         if user:
             last_post_id = user.last_post_id
             return last_post_id
@@ -115,14 +114,15 @@ async def get_categories():
         logger.error(f'Ошибка при получении категорий: {err}')
 
 
-async def get_user_categories(user_tg_id):
+async def get_user_categories(user_tg_id: int):
     session = Session()
-    user_categories = []
     try:
-        user_categories = session.query(Category).select_from(User).join(UserCategory).join(Category).filter(User.user_tg_id == user_tg_id)
-        print(user_categories)
+        records = session.query(Category).select_from(User).join(UserCategory).join(Category).filter(
+            User.user_tg_id == user_tg_id)
+        user_categories = [record for record in records]
+        return [f'<code>{i+1}. {user_categories[i].name}{user_categories[i].emoji}</code>' for i in range(0, len(user_categories))]
     except Exception as err:
         logger.error(f'Ошибка при получении пользовательских категорий: {err}')
+        return []
     finally:
         session.close()
-        return [f'{category.id}. {category.name}{category.emoji}' for category in user_categories]

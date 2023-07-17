@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, Text, Unicode, text
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, Text, Unicode, text, BigInteger
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy_utils import database_exists, create_database
@@ -19,7 +19,7 @@ Session = sessionmaker(bind=engine)
 class User(Base):
     __tablename__ = 'user'
 
-    user_tg_id = Column(Integer, primary_key=True)
+    user_tg_id = Column(BigInteger, primary_key=True)
     last_post_id = Column(Integer)
 
     user_channel_connection = relationship('UserChannel', back_populates='user_connection')
@@ -31,7 +31,7 @@ class User(Base):
 
 class UserChannel(Base):
     __tablename__ = 'user_channel'
-    user_id = Column(Integer, ForeignKey('user.user_tg_id'), primary_key=True)
+    user_id = Column(BigInteger, ForeignKey('user.user_tg_id'), primary_key=True)
     channel_id = Column(Integer, ForeignKey('personal_channel.id'), primary_key=True)
 
     user_connection = relationship('User', back_populates='user_channel_connection')
@@ -60,17 +60,18 @@ class PersonalPost(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     text = Column(Text)
     image_path = Column(Text)
+    entities = Column(Text)
     channel_id = Column(Integer, ForeignKey('personal_channel.id'))
 
     personal_channel_connection = relationship('PersonalChannel', back_populates='personal_post_connection')
 
     def __repr__(self):
-        return f"<PersonalPost(text='{self.text}', image_path='{self.image_path}')>"
+        return f"<PersonalPost(text='{self.text}', image_path='{self.image_path}', entities='{self.entities}')>"
 
 
 class UserCategory(Base):
     __tablename__ = 'user_category'
-    user_id = Column(Integer, ForeignKey('user.user_tg_id'), primary_key=True)
+    user_id = Column(BigInteger, ForeignKey('user.user_tg_id'), primary_key=True)
     category_id = Column(Integer, ForeignKey('category.id'), primary_key=True)
 
     user_connection = relationship('User', back_populates='user_category_connection')
@@ -119,8 +120,7 @@ class GeneralPost(Base):
 
 
 # Пересоздаёт бд
-# Base.metadata.drop_all(engine, checkfirst=True)
-
+Base.metadata.drop_all(engine, checkfirst=True)
 
 session = Session()
 query = "SET NAMES 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'"
@@ -145,4 +145,3 @@ def create_categories():
 
 
 create_categories()
-
