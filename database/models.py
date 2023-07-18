@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, Text, Unicode, text, BigInteger
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, Text, text, BigInteger
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy_utils import database_exists, create_database
@@ -73,6 +73,7 @@ class UserCategory(Base):
     __tablename__ = 'user_category'
     user_id = Column(BigInteger, ForeignKey('user.user_tg_id'), primary_key=True)
     category_id = Column(Integer, ForeignKey('category.id'), primary_key=True)
+    last_post_id = Column(Integer, default=0)
 
     user_connection = relationship('User', back_populates='user_category_connection')
     category_connection = relationship('Category', back_populates='user_category_connection')
@@ -127,7 +128,7 @@ query = "SET NAMES 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'"
 session.execute(text(query))
 session.commit()
 
-Base.metadata.create_all(engine)
+# Base.metadata.create_all(engine)
 
 
 def create_categories():

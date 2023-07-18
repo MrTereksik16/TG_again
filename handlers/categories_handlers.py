@@ -9,11 +9,9 @@ from database.queries.delete_queries import *
 from database.queries.get_queries import *
 from handlers.general_handlers import on_start_message
 from keyboards.categories.reply.categories_reply_buttons import start_button
-from keyboards.categories.reply.categories_reply_keyboards import categories_admin_control_keyboard, \
-    categories_control_keyboard
-
+from keyboards import categories_reply_keyboards
 from store.states import CategoriesStates
-from utils.helpers import convert_categories_to_string, create_categories_buttons
+from utils.helpers import convert_categories_to_string, create_categories_buttons, send_post_in_categories_feed
 from keyboards import general_reply_buttons_texts, categories_reply_buttons_texts
 
 
@@ -22,8 +20,9 @@ async def on_categories_feed_message(message: Message, state: FSMContext):
     user_categories = await get_user_categories(user_tg_id)
     await state.update_data(user_categories=user_categories)
     await state.set_state(CategoriesStates.CATEGORIES_FEED)
+
     if user_categories:
-        keyboard = categories_admin_control_keyboard if user_tg_id in ADMINS else categories_control_keyboard
+        keyboard = categories_reply_keyboards.categories_admin_start_control_keyboard if user_tg_id in ADMINS else categories_reply_keyboards.categories_start_control_keyboard
         await message.answer('*Лента категорий*', reply_markup=keyboard)
     else:
         await on_add_or_delete_user_categories_message(message, state)
@@ -96,6 +95,10 @@ async def on_category_message(message: Message, state: FSMContext):
         await message.answer(f'Список ваших категорий пуст')
 
 
+async def on_skip_message(message: Message):
+    await send_post_in_categories_feed(message)
+
+
 def register_categories_handlers(dp: Dispatcher):
     dp.register_message_handler(
         on_category_message,
@@ -112,5 +115,11 @@ def register_categories_handlers(dp: Dispatcher):
     dp.register_message_handler(
         on_add_or_delete_user_categories_message,
         Text(equals=categories_reply_buttons_texts.ADD_OR_DELETE_USER_CATEGORIES_BUTTON_TEXT),
+        state=CategoriesStates.CATEGORIES_FEED
+    )
+
+    dp.register_message_handler(
+        on_skip_message,
+        Text(equals=general_reply_buttons_texts.SKIP_BUTTON_TEXT),
         state=CategoriesStates.CATEGORIES_FEED
     )

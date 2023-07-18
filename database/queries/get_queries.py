@@ -143,3 +143,35 @@ async def get_user_categories(user_tg_id: int):
         return []
     finally:
         session.close()
+
+
+async def get_categories_posts(user_tg_id) -> list:
+    session = Session()
+    try:
+        records = session.query(
+            GeneralPost.id, GeneralPost.image_path, GeneralPost.text, GeneralChannel.category_id, GeneralChannel.username).select_from(User).join(UserCategory,User.user_tg_id == UserCategory.user_id). \
+            join(GeneralChannel, UserCategory.category_id == GeneralChannel.category_id). \
+            join(GeneralPost, GeneralChannel.id == GeneralPost.general_channel_id).filter(
+            User.user_tg_id == user_tg_id).all()
+        result = []
+        for record in records:
+            result.append(record)
+        return result
+    except Exception as err:
+        logger.error(f'Ошибка при получении пользовательских категорий: {err}')
+        return []
+    finally:
+        session.close()
+
+
+async def get_user_last_category_post_id(user_tg_id, category_id) -> int:
+    session = Session()
+    try:
+        result = session.query(UserCategory.last_post_id).select_from(User).join(UserCategory).filter(
+            User.user_tg_id == user_tg_id, UserCategory.category_id == category_id).first()
+        return result.last_post_id
+    except Exception as err:
+        logger.error(f'Ошибка при получении пользовательских категорий: {err}')
+        return 0
+    finally:
+        session.close()

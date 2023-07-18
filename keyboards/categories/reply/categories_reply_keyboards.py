@@ -15,7 +15,7 @@ admin_start_control_buttons = [
 
 control_buttons = [
     [skip_button],
-    [add_delete_user_categories_button, to_admin_panel_button],
+    [add_delete_user_categories_button],
     [to_recommendations_button, to_personal_button]
 ]
 

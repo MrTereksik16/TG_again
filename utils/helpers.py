@@ -22,6 +22,7 @@ async def send_post_in_personal_feed(message: Message):
     last_post_id = await get_user_last_personal_post_id(user_tg_id)
     user_channels = await get_user_channels(user_tg_id)
     keyboard = personal_reply_keyboards.personal_control_keyboard
+
     if personal_posts:
         next_post = None
         for post in personal_posts:
@@ -79,9 +80,9 @@ async def send_post_in_recommendations_feed(message: Message):
         if next_post:
             text = next_post.text
             media_path = next_post.image_path
-            channel_name = next_post.general_channel_connection.username
+            channel_username = next_post.general_channel_connection.username
 
-            message_text = f"{text}\nChannel Name: @{channel_name}"
+            message_text = f"{text}\nChannel Name: @{channel_username}"
             try:
                 if media_path is not None:
                     if media_path.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')):
@@ -100,6 +101,50 @@ async def send_post_in_recommendations_feed(message: Message):
                 logger.error(f'Ошибка при отправлении поста пользователю: {err}')
 
             await update_user_last_general_post_id(user_tg_id, next_post.id)
+        else:
+            await message.answer("Посты закончились")
+    else:
+        await message.answer("Нет доступных постов")
+
+
+async def send_post_in_categories_feed(message: Message):
+    user_tg_id = message.from_user.id
+    chat_id = message.chat.id
+    categories_posts = await get_categories_posts(user_tg_id)
+    keyboard = categories_reply_keyboards.categories_admin_control_keyboard if user_tg_id in ADMINS else categories_reply_keyboards.categories_control_keyboard
+
+    if categories_posts:
+        next_post = None
+        for post in categories_posts:
+            last_post_id = await get_user_last_category_post_id(user_tg_id, post.category_id)
+            if post.id > last_post_id:
+                next_post = post
+                break
+
+        if next_post:
+            text = next_post.text
+            media_path = next_post.image_path
+            channel_username = next_post.username
+
+            message_text = f"{text}\nChannel Name: @{channel_username}"
+            try:
+                if media_path is not None:
+                    if media_path.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')):
+                        await bot.send_chat_action(chat_id, action=ChatActions.UPLOAD_PHOTO)
+                        await bot.send_photo(chat_id=chat_id, photo=InputFile(media_path), caption=message_text,
+                                             reply_markup=keyboard)
+                    elif media_path.lower().endswith(('.mp4', '.mov', '.avi')):
+                        await bot.send_chat_action(chat_id, action=ChatActions.UPLOAD_VIDEO)
+                        await bot.send_video(chat_id=chat_id, video=InputFile(media_path), caption=message_text,
+                                             reply_markup=keyboard)
+                else:
+                    await bot.send_message(chat_id, text=message_text, reply_markup=keyboard)
+            except Exception as err:
+                if 'Message caption is too long' in str(err):
+                    await bot.answer('Упс. Пост слишком большой', reply_markup=keyboard)
+                logger.error(f'Ошибка при отправлении поста пользователю: {err}')
+
+            await update_user_last_category_post_id(user_tg_id, next_post.category_id, next_post.id)
         else:
             await message.answer("Посты закончились")
     else:

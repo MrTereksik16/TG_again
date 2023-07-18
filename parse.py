@@ -1,4 +1,3 @@
-import pandas as pd
 import asyncio
 from aiogram.types import Message
 from telethon import TelegramClient
