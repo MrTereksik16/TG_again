@@ -79,7 +79,6 @@ async def parse(message: Message, channel_username: str, admin_panel=False, limi
                 'chat_id': chat_id,
                 'status_message_id': status_message_id
             })
-        pd.DataFrame(data)
         client.disconnect()
         return data
     except Exception as err:

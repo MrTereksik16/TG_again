@@ -3,3 +3,4 @@ media/*
 *.session
 *.log
 **/__pycache__/
+config/

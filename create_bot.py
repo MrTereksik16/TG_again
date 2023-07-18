@@ -9,5 +9,6 @@ client = TelegramClient('bot_session', config.API_ID, config.API_HASH)
 client.start(bot_token=config.TOKEN)
 bot = Bot(token=config.TOKEN)
 bot.parse_mode = ParseMode.MARKDOWN
+bot.disable_web_page_preview = True
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)

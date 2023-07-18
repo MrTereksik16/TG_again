@@ -40,7 +40,7 @@ async def on_add_or_delete_user_categories_message(message: Message, state: FSMC
 
     list_of_categories = '\n'.join(user_categories)
     cat_buttons = await create_categories_buttons(categories)
-    keyboard = [[button] for button in cat_buttons]
+    keyboard = [[cat_buttons[i], cat_buttons[i + 1]] for i in range(0, len(cat_buttons) - 1, 2)]
     keyboard.insert(0, [start_button])
     keyboard = ReplyKeyboardMarkup(keyboard)
 
@@ -50,7 +50,7 @@ async def on_add_or_delete_user_categories_message(message: Message, state: FSMC
     await message.answer(answer, reply_markup=keyboard, parse_mode=ParseMode.HTML)
 
     if user_categories:
-        await message.answer(f'*Список ваших категорий:*\n{list_of_categories}')
+        await message.answer(f'<b>Список ваших категорий:</b>\n{list_of_categories}', parse_mode=ParseMode.HTML)
 
     await state.set_state(CategoriesStates.GET_USER_CATEGORIES)
 
@@ -68,23 +68,24 @@ async def on_category_message(message: Message, state: FSMContext):
     elif message.text not in categories:
         return await message.answer('Такой категории у нас пока нет 😅')
 
-    category_id = int(message.text[0])
+    category_id = int(message.text.split('.')[0])
     created = await create_user_category(user_tg_id, category_id)
-
     user_categories = await get_user_categories(user_tg_id)
-
     if created == errors.DUPLICATE_ENTRY_ERROR:
         deleted = await delete_user_category(user_tg_id, category_id)
         user_categories = await get_user_categories(user_tg_id)
         if deleted:
             await message.answer(
-                f'Категория `<code>{message.text.split(". ", 1)[1]}</code>` <b>удалена</b> из списка ваших категорий', parse_mode=ParseMode.HTML)
+                f'Категория `<code>{message.text.split(". ", 1)[1]}</code>` <b>удалена</b> из списка ваших категорий',
+                parse_mode=ParseMode.HTML)
         else:
-            await message.answer(f'Не удалось удалить категорию `<code>{message.text[2:]}</code>`', parse_mode=ParseMode.HTML)
+            await message.answer(f'Не удалось удалить категорию `<code>{message.text[2:]}</code>`',
+                                 parse_mode=ParseMode.HTML)
 
     elif created:
         await message.answer(
-            f'Категория `<code>{message.text.split(". ", 1)[1]}</code>` <b>добавлена</b>  в список ваших категорий', parse_mode=ParseMode.HTML)
+            f'Категория `<code>{message.text.split(". ", 1)[1]}</code>` <b>добавлена</b>  в список ваших категорий',
+            parse_mode=ParseMode.HTML)
     else:
         await message.answer('Упс. Что-то пошло не так')
 

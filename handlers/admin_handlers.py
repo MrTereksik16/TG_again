@@ -1,13 +1,12 @@
-from aiogram import Dispatcher, Bot
+from aiogram import Dispatcher
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
-from aiogram.types import Message, ReplyKeyboardMarkup, ReplyKeyboardRemove
-
+from aiogram.types import Message, ReplyKeyboardMarkup, ReplyKeyboardRemove, ParseMode
 from database.queries.get_queries import get_categories
 from database.queries.create_queries import *
 from parse import parse
 from store.states import AdminPanelStates
-from utils.helpers import add_channels_from_message, convert_categories_to_string, create_categories_buttons
+from utils.helpers import add_channels_from_message, create_categories_buttons
 from keyboards import admin_reply_buttons_texts, admin_reply_keyboards
 from utils.consts.answers import *
 
@@ -40,7 +39,8 @@ async def on_channels_message(message: Message, state: FSMContext):
     data = await add_channels_from_message(message, category)
     answer = data['answer']
     added = data['added']
-    await message.answer(answer, reply_markup=admin_reply_keyboards.admin_panel_control_keyboard)
+    await message.answer(answer, reply_markup=admin_reply_keyboards.admin_panel_control_keyboard, parse_mode=ParseMode.HTML)
+    await state.set_state(AdminPanelStates.ADMIN_PANEL)
     for channel_username in added:
         data = await parse(message, channel_username, admin_panel=True)
         await create_general_post(data)
