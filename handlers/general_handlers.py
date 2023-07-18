@@ -29,6 +29,7 @@ async def on_start_message(message: Message, state: FSMContext):
         await send_post_in_personal_feed(message)
 
 
+
 async def on_admin_panel_message(message: Message, state: FSMContext):
     await state.set_state(AdminPanelStates.ADMIN_PANEL)
     user_tg_id = message.from_user.id
@@ -48,3 +49,4 @@ def register_generals_handlers(dp):
         Text(equals=general_reply_buttons_texts.TO_ADMIN_PANEL_BUTTON_TEXT),
         state='*'
     )
+

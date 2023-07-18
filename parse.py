@@ -1,19 +1,13 @@
-import json
-
 import pandas as pd
 import asyncio
-
 from aiogram.types import Message
 from telethon import TelegramClient
 from telethon.tl.types import MessageMediaPhoto, MessageMediaDocument, DocumentAttributeVideo
 from PIL import Image
-import os
-from config.config import ADMINS
 from config import config
 from config.logging_config import logger
 from create_bot import bot
 from database.queries.get_queries import get_personal_channel, get_general_channel
-
 import os
 from datetime import datetime
 

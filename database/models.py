@@ -101,7 +101,7 @@ class GeneralChannel(Base):
     general_post_connection = relationship('GeneralPost', back_populates='general_channel_connection')
 
     def __repr__(self):
-        return f"<GeneralChannels(user_id='{self.user_id}', username='{self.username}')>"
+        return f"<GeneralChannels(username='{self.username}')>"
 
 
 class GeneralPost(Base):

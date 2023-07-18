@@ -59,7 +59,6 @@ async def on_channels_message(message: Message, state: FSMContext):
     for username in added:
         data = await parse(message, username, limit=10)
         await create_personal_post(data)
-
     await state.set_state(PersonalStates.PERSONAL_FEED)
 
 
