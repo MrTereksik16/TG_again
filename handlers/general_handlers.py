@@ -1,6 +1,6 @@
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
-from aiogram.types import Message, ParseMode
+from aiogram.types import Message
 from config.config import ADMINS
 from keyboards.categories.reply.categories_reply_keyboards import *
 from keyboards.personal.reply.personal_reply_keyboards import *

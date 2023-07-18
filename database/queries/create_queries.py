@@ -116,3 +116,5 @@ async def create_user_category(user_tg_id: int, category_id: int):
         return False
     finally:
         session.close()
+
+# async def create_category_post()

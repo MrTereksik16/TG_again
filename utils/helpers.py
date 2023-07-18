@@ -7,7 +7,7 @@ from database.queries.update_queries import *
 from keyboards.personal.inline.personal_inline_keyboards import add_user_channels_inline_keyboard
 from parse import parse
 from utils.consts import answers, errors
-from keyboards import personal_reply_keyboards, recommendations_reply_keyboards, categories_reply_keyboards
+from keyboards import personal_reply_keyboards, recommendations_reply_keyboards
 
 
 async def convert_categories_to_string(categories) -> str:

@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, Text, Unicode, text, BigInteger
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, Text, text, BigInteger
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy_utils import database_exists, create_database
@@ -73,6 +73,7 @@ class UserCategory(Base):
     __tablename__ = 'user_category'
     user_id = Column(BigInteger, ForeignKey('user.user_tg_id'), primary_key=True)
     category_id = Column(Integer, ForeignKey('category.id'), primary_key=True)
+    last_post_id = Column(Integer, default=0)
 
     user_connection = relationship('User', back_populates='user_category_connection')
     category_connection = relationship('Category', back_populates='user_category_connection')
@@ -103,20 +104,6 @@ class GeneralChannel(Base):
     def __repr__(self):
         return f"<GeneralChannels(username='{self.username}')>"
 
-class CategoryPost(Base):
-    __tablename__ = 'category_post'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    user_tg_id = Column(Integer, ForeignKey('user.id'))
-    general_post = Column(Integer, ForeignKey('general_post.id'))
-    category_id = Column(Integer, ForeignKey('category.id'))
-    general_channel_id = Column(Integer, ForeignKey("general_channel.id"))
-
-    general_channel_connection = relationship('GeneralChannel', back_populates='general_post_connection')
-
-    def __repr__(self):
-        return f"<GeneralPost(text='{self.text}', image_path='{self.image_path}', likes='{self.likes}', dislikes='{self.dislikes}')>"
-
-
 class GeneralPost(Base):
     __tablename__ = 'general_post'
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -132,8 +119,11 @@ class GeneralPost(Base):
         return f"<GeneralPost(text='{self.text}', image_path='{self.image_path}', likes='{self.likes}', dislikes='{self.dislikes}')>"
 
 
+
+
+
 # Пересоздаёт бд
-# Base.metadata.drop_all(engine, checkfirst=True)
+Base.metadata.drop_all(engine, checkfirst=True)
 
 session = Session()
 query = "SET NAMES 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'"
