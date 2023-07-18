@@ -1,16 +1,6 @@
 from aiogram.types import ReplyKeyboardMarkup
 from .categories_reply_buttons import *
 
-
-async def categories_keyboard(categories):
-    categories_buttons = [
-        [start_button],
-    ]
-    for category in categories:
-        categories_buttons.append([KeyboardButton(text=category)])
-    keyboard = ReplyKeyboardMarkup(categories_buttons, resize_keyboard=True)
-    return keyboard
-
 start_control_buttons = [
     [start_button],
     [add_delete_user_categories_button],

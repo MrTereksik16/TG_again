@@ -2,3 +2,4 @@ media/*
 .idea
 *.session
 *.log
+**/__pycache__/

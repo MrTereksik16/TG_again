@@ -12,7 +12,6 @@ engine = create_engine(f'mysql+pymysql://{database_properties}', echo=True)
 if not database_exists(engine.url):
     create_database(engine.url, 'utf8mb4')
 
-# Создаем сессию, чтобы выполнять операции с базой данных
 Session = sessionmaker(bind=engine)
 
 
@@ -20,7 +19,8 @@ class User(Base):
     __tablename__ = 'user'
 
     user_tg_id = Column(BigInteger, primary_key=True)
-    last_post_id = Column(Integer)
+    last_personal_post_id = Column(Integer, default=0)
+    last_general_post_id = Column(Integer, default=0)
 
     user_channel_connection = relationship('UserChannel', back_populates='user_connection')
     user_category_connection = relationship('UserCategory', back_populates='user_connection')

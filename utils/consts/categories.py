@@ -28,7 +28,7 @@ CATEGORIES_EMOJI = {
     CATEGORIES[8]: '💸',
     CATEGORIES[9]: '🌎',
     CATEGORIES[10]: '😂',
-    CATEGORIES[11]: '₿',
+    CATEGORIES[11]: '💎',
     CATEGORIES[12]: '🎬',
     CATEGORIES[13]: '🉐',
 }

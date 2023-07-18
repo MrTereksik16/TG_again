@@ -1,23 +1,18 @@
 from aiogram import Dispatcher, types
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardRemove, CallbackQuery
-from parse import parse
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardRemove, CallbackQuery, Message
 from utils.consts import answers
 from parse import parse
 from callbacks import callbacks
-from create_bot import dp, client
+from create_bot import dp
 from database.queries.create_queries import *
 from database.queries.delete_queries import delete_personal_channel
 from database.queries.get_queries import get_user_channels
 from keyboards.personal.inline.personal_inline_keyboards import add_user_channels_inline_keyboard
-from keyboards.personal.reply.personal_reply_keyboards import *
+from keyboards import personal_reply_keyboards
 from store.states import PersonalStates
-from config.config import ADMINS
-from keyboards.personal.inline.personal_inline_keyboards import add_user_channels_inline_keyboard
-from keyboards.personal.reply.personal_reply_keyboards import *
-from store.states import PersonalStates
-from utils.helpers import send_post_for_user_in_personal_feed
+from utils.helpers import send_post_in_personal_feed, add_channels_from_message
 from keyboards import personal_reply_buttons_texts, general_reply_buttons_texts
 
 
@@ -27,10 +22,10 @@ async def on_personal_feed_message(message: Message, state: FSMContext):
     await state.set_state(PersonalStates.PERSONAL_FEED)
 
     if user_channels:
+        await message.answer('*Личная лента*')
         await on_list_channels_message(message)
     else:
         await on_add_channels_message(message, state)
-
 
 
 async def on_add_channels_message(message: Message, state: FSMContext):
@@ -52,53 +47,19 @@ async def on_add_channels_inline_click(callback: CallbackQuery, state: FSMContex
 
 
 async def on_channels_message(message: Message, state: FSMContext):
-    links = [link.strip() for link in message.text.split(',') if link.strip()]
-    user_tg_id = message.from_user.id
-    added = []
-    not_added = []
-    already_added = []
-    for link in links:
-        try:
-            channel_tg_entity = await client.get_entity(link)
-        except Exception as err:
-            logger.error(f'Ошибка при получении сущности чата: {err}')
-            not_added.append(f'@{link.split("/")[-1].split("?")[0].replace("@", "")}')
-            continue
-
-        username = channel_tg_entity.username
-        result = await create_user_channel(user_tg_id, username)
-        if result == errors.DUPLICATE_ENTRY_ERROR:
-            already_added.append(f'@{channel_tg_entity.username}')
-        elif result:
-            added.append(f'@{channel_tg_entity.username}')
-        else:
-            not_added.append(f'@{link.split("/")[-1].split("?")[0].replace("@", "")}')
-
-    message_text = ''
+    data = await add_channels_from_message(message)
+    answer = data['answer']
+    added = data['added']
     if added:
-        message_text += answers.CHANNELS_ADDED_MESSAGE.format(channels_added=', '.join(added))
-    if not_added:
-        message_text += answers.CHANNELS_NOT_ADDED_MESSAGE.format(channels_not_added=', '.join(not_added))
-    if already_added:
-        message_text += answers.CHANNELS_ALREADY_ADDED_MESSAGE.format(channels_already_added=', '.join(already_added))
+        await message.answer(answer, reply_markup=personal_reply_keyboards.personal_wait_for_parse_keyboard)
 
-    await message.answer(message_text, reply_markup=personal_control_keyboard)
-
-
-    # for username in added:
-    #     data = await parse(msg=message, channel_name=username)
-    #     print(data)
-    #     # if message.from_user.id in ADMINS:
-    #     #     await create_general_post(data=data)
-    #     # else:
-    #     await create_personal_post(data=data)
-    # await message.answer(message_text, reply_markup=personal_start_control_keyboard)
-    # await state.set_state(PersonalStates.PERSONAL_FEED)
+    else:
+        await message.answer(answer, reply_markup=personal_reply_keyboards.personal_start_control_keyboard)
 
     for username in added:
         data = await parse(message, username, limit=10)
-        await create_personal_post(data=data)
-    await message.answer(message_text, reply_markup=personal_start_control_keyboard)
+        await create_personal_post(data)
+
     await state.set_state(PersonalStates.PERSONAL_FEED)
 
 
@@ -111,7 +72,8 @@ async def on_list_channels_message(message: Message):
     else:
         for channel in channels:
             usernames.append(f'@{channel}')
-        await message.answer(answers.ADDED_CHANNELS_MESSAGE.format(usernames=', '.join(usernames)), reply_markup=personal_start_control_keyboard)
+        await message.answer(answers.ADDED_CHANNELS_MESSAGE + ', '.join(usernames),
+                             reply_markup=personal_reply_keyboards.personal_start_control_keyboard)
 
 
 async def on_delete_user_channel_message(message: Message, state: FSMContext):
@@ -129,11 +91,15 @@ async def on_delete_user_channel_message(message: Message, state: FSMContext):
     msg = await message.answer(answers.DELETE_CHANNEL_MESSAGE, reply_markup=keyboard)
     await state.update_data(user_channels_usernames=usernames)
     await state.update_data(delete_user_channels_message=msg)
-    dp.register_callback_query_handler(on_delete_user_channel_button_click,
-                                       Text(startswith=callbacks.DELETE_USER_CHANNEL), state=PersonalStates.PERSONAL_FEED)
+
+    dp.register_callback_query_handler(
+        on_delete_user_channel_inline_click,
+        Text(startswith=callbacks.DELETE_USER_CHANNEL),
+        state=PersonalStates.PERSONAL_FEED
+    )
 
 
-async def on_delete_user_channel_button_click(callback: CallbackQuery, state: FSMContext):
+async def on_delete_user_channel_inline_click(callback: CallbackQuery, state: FSMContext):
     username = callback.data.split(':')[1]
     logger.error(callback.data)
     context_data = await state.get_data()
@@ -153,14 +119,13 @@ async def on_delete_user_channel_button_click(callback: CallbackQuery, state: FS
             await msg.edit_reply_markup(reply_markup=add_user_channels_inline_keyboard)
         else:
             await msg.edit_reply_markup(reply_markup=edited_keyboard)
-        await callback.answer('Канал успешно удалён из списка')
+        await callback.answer('*Канал успешно удалён из списка*')
     else:
-        await callback.answer('Не удалось удалить канал')
+        await callback.answer('*Не удалось удалить канал*')
 
 
-async def on_next_message(message: Message):
-    keyboard = personal_control_keyboard
-    await send_post_for_user_in_personal_feed(message, keyboard)
+async def on_skip_message(message: Message):
+    await send_post_in_personal_feed(message)
 
 
 def register_personal_handlers(dp: Dispatcher):
@@ -195,7 +160,7 @@ def register_personal_handlers(dp: Dispatcher):
     )
 
     dp.register_message_handler(
-        on_next_message,
+        on_skip_message,
         Text(personal_reply_buttons_texts.SKIP_BUTTON_TEXT),
         state=PersonalStates.PERSONAL_FEED
     )

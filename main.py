@@ -2,7 +2,7 @@ import logging
 from aiogram import types
 from aiogram.utils import executor
 from config.logging_config import logger
-from create_bot import dp
+from create_bot import dp, bot
 from handlers import register_personal_handlers, register_recommendations_handlers, register_categories_handlers, \
     register_generals_handlers, register_admin_handlers
 

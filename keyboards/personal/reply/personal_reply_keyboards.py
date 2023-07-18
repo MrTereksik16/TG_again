@@ -7,6 +7,11 @@ start_control_buttons = [
     [to_recommendations_button, to_categories_button],
 ]
 
+personal_wait_for_parse_keyboard = [
+    [list_user_channels_button, add_user_channels_button, delete_user_channels_button],
+    [to_recommendations_button, to_categories_button],
+]
+
 control_buttons = [
     [skip_button],
     [list_user_channels_button, add_user_channels_button, delete_user_channels_button],

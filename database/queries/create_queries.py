@@ -1,17 +1,15 @@
-from aiogram.types import Message
-from telethon.tl.types import Channel
-
 from create_bot import bot
 from utils.consts import errors
 from config.logging_config import logger
 from database.models import Session, GeneralChannel, UserChannel, User, PersonalPost, PersonalChannel, UserCategory, \
     GeneralPost
+from keyboards import personal_reply_keyboards
 
 
-async def create_user(user_tg_id, last_post_id):
+async def create_user(user_tg_id: int):
     session = Session()
     try:
-        user = User(user_tg_id=user_tg_id, last_post_id=last_post_id)
+        user = User(user_tg_id=user_tg_id)
         session.add(user)
         session.commit()
         return True
@@ -22,14 +20,14 @@ async def create_user(user_tg_id, last_post_id):
         session.close()
 
 
-async def create_user_channel(user_tg_id, username):
+async def create_user_channel(user_tg_id: int, channel_username: str):
     session = Session()
     try:
-        personal_channel = session.query(PersonalChannel).filter_by(username=username).first()
+        personal_channel = session.query(PersonalChannel).filter_by(username=channel_username).first()
         session.flush()
 
         if not personal_channel:
-            personal_channel = PersonalChannel(username=username)
+            personal_channel = PersonalChannel(username=channel_username)
             session.add(personal_channel)
             session.flush()
 
@@ -46,21 +44,11 @@ async def create_user_channel(user_tg_id, username):
         session.close()
 
 
-async def create_general_channel_by_admin(user_tg_id, channel_tg_entity):
+async def create_general_channel(channel_username: str, category_id: int):
     session = Session()
     try:
-        username = channel_tg_entity.username
-        new_general_channel = GeneralChannel(username=username)
+        new_general_channel = GeneralChannel(username=channel_username, category_id=category_id)
         session.add(new_general_channel)
-        session.flush()
-        # channel_id = new_general_channel.id
-        # session.add(GeneralChannel(user_id=user_tg_id, channel_id=channel_id))
-        # session.flush()
-        # channel_id = new_general_channel.id
-        # session.add(UserChannel(user_id=user_tg_id, channel_id=channel_id))
-
-        channel_id = new_general_channel.id
-        session.add(UserChannel(user_id=user_tg_id, channel_id=channel_id))
         session.commit()
         return True
     except Exception as err:
@@ -72,20 +60,19 @@ async def create_general_channel_by_admin(user_tg_id, channel_tg_entity):
         session.close()
 
 
-async def create_personal_post(data):
+async def create_personal_post(data: list[dict]):
     session = Session()
     try:
         status_message_id = data[0]['status_message_id']
         chat_id = data[0]['chat_id']
-        channel_name = data[0]['channel_name']
+        channel_username = data[0]['channel_name']
         for info in data:
-            personal_post = PersonalPost(text=info['text'], image_path=info['media_id'], entities='hsbefhjbsef', channel_id=info['channel_id'])
+            personal_post = PersonalPost(text=info['text'], image_path=info['media_id'], channel_id=info['channel_id'])
             session.add(personal_post)
-            print(info)
             session.flush()
         session.commit()
-        await bot.edit_message_text(f'Посты с канала @{channel_name} получены 👍', chat_id, status_message_id)
-
+        await bot.edit_message_text(f'Посты с канала {channel_username} получены 👍', chat_id, status_message_id,
+                                    reply_markup=personal_reply_keyboards.personal_start_control_keyboard)
         return True
     except Exception as err:
         logger.error(f'Ошибка при добавлении пользовательского поста: {err}')
@@ -93,23 +80,29 @@ async def create_personal_post(data):
     finally:
         session.close()
 
-async def create_general_post(data):
+
+async def create_general_post(data: list[dict]):
     session = Session()
     try:
+        status_message_id = data[0]['status_message_id']
+        chat_id = data[0]['chat_id']
+        channel_username = data[0]['channel_name']
         for info in data:
             general_post = GeneralPost(text=info['text'], image_path=info['media_id'], likes=1, dislikes=1,
                                        general_channel_id=info['channel_id'])
             session.add(general_post)
             session.flush()
         session.commit()
+        await bot.edit_message_text(f'Посты с канала {channel_username} получены 👍', chat_id, status_message_id)
+        return True
     except Exception as err:
-        session.rollback()
         logger.error(f'Ошибка при добавлении общего поста: {err}')
+        return False
     finally:
         session.close()
 
 
-async def create_user_category(user_tg_id, category_id: int):
+async def create_user_category(user_tg_id: int, category_id: int):
     session = Session()
     try:
         new_user_category = UserCategory(user_id=user_tg_id, category_id=category_id)
