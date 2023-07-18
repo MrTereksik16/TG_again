@@ -34,6 +34,7 @@ async def on_category_message(message: Message, state: FSMContext):
 
 
 async def on_channels_message(message: Message, state: FSMContext):
+    keyboard = admin_reply_keyboards.admin_panel_wait_for_parse_general_channels_keyboard
     context = await state.get_data()
     category = context['category']
     data = await add_channels_from_message(message, category)
@@ -42,7 +43,7 @@ async def on_channels_message(message: Message, state: FSMContext):
     await message.answer(answer, reply_markup=admin_reply_keyboards.admin_panel_control_keyboard, parse_mode=ParseMode.HTML)
     await state.set_state(AdminPanelStates.ADMIN_PANEL)
     for channel_username in added:
-        data = await parse(message, channel_username, admin_panel=True)
+        data = await parse(message, channel_username, keyboard, admin_panel=True)
         await create_general_post(data)
 
 

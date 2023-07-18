@@ -1,9 +1,11 @@
+from aiogram.types import Message
+
 from create_bot import bot
 from utils.consts import errors
 from config.logging_config import logger
 from database.models import Session, GeneralChannel, UserChannel, User, PersonalPost, PersonalChannel, UserCategory, \
     GeneralPost
-from keyboards import personal_reply_keyboards
+from keyboards import personal_reply_keyboards, admin_reply_keyboards
 
 
 async def create_user(user_tg_id: int):
@@ -63,16 +65,15 @@ async def create_general_channel(channel_username: str, category_id: int):
 async def create_personal_post(data: list[dict]):
     session = Session()
     try:
-        status_message_id = data[0]['status_message_id']
-        chat_id = data[0]['chat_id']
         channel_username = data[0]['channel_name']
+        chat_id = data[0]['chat_id']
         for info in data:
             personal_post = PersonalPost(text=info['text'], image_path=info['media_id'], channel_id=info['channel_id'])
             session.add(personal_post)
             session.flush()
         session.commit()
-        await bot.edit_message_text(f'Посты с канала {channel_username} получены 👍', chat_id, status_message_id,
-                                    reply_markup=personal_reply_keyboards.personal_start_control_keyboard)
+        await bot.send_message(chat_id, f'Посты с канала {channel_username} получены 👍',
+                               reply_markup=personal_reply_keyboards.personal_start_control_keyboard)
         return True
     except Exception as err:
         logger.error(f'Ошибка при добавлении пользовательского поста: {err}')
@@ -84,7 +85,6 @@ async def create_personal_post(data: list[dict]):
 async def create_general_post(data: list[dict]):
     session = Session()
     try:
-        status_message_id = data[0]['status_message_id']
         chat_id = data[0]['chat_id']
         channel_username = data[0]['channel_name']
         for info in data:
@@ -93,7 +93,8 @@ async def create_general_post(data: list[dict]):
             session.add(general_post)
             session.flush()
         session.commit()
-        await bot.edit_message_text(f'Посты с канала {channel_username} получены 👍', chat_id, status_message_id)
+        await bot.send_message(chat_id, f'Посты с канала {channel_username} получены 👍',
+                               reply_markup=admin_reply_keyboards.admin_panel_control_keyboard)
         return True
     except Exception as err:
         logger.error(f'Ошибка при добавлении общего поста: {err}')
@@ -116,4 +117,3 @@ async def create_user_category(user_tg_id: int, category_id: int):
         return False
     finally:
         session.close()
-

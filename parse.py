@@ -38,7 +38,7 @@ def compress_image(filename):
     return compressed_filename
 
 
-async def parse(message: Message, channel_username: str, admin_panel=False, limit=3) -> list[dict]:
+async def parse(message: Message, channel_username: str, keyboard, admin_panel=False, limit=3) -> list[dict]:
     try:
         client = TelegramClient('user_session', config.API_ID, config.API_HASH)
         await client.start(config.PHONE_NUMBER)
@@ -52,8 +52,8 @@ async def parse(message: Message, channel_username: str, admin_panel=False, limi
 
         channel_username = f'@{channel_username}'
         chat_id = message.chat.id
-        status_message = await bot.send_message(chat_id, f'Получаем посты из канала {channel_username}...')
-        status_message_id = status_message.message_id
+
+        await bot.send_message(chat_id, f'Получаем посты из канала {channel_username}...', reply_markup=keyboard)
 
         data = []
         tasks = []
@@ -75,8 +75,7 @@ async def parse(message: Message, channel_username: str, admin_panel=False, limi
                 'channel_name': channel_username,
                 'grouped_id': message.grouped_id if message.grouped_id is not None else -1,
                 'channel_id': channel_id,
-                'chat_id': chat_id,
-                'status_message_id': status_message_id
+                'chat_id': chat_id
             })
         client.disconnect()
         return data

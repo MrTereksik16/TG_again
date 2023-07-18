@@ -63,7 +63,6 @@ async def get_personal_posts(user_tg_id: int):
         personal_posts = []
         for record in records:
             personal_posts.append(record)
-        logger.error(personal_posts)
         return personal_posts
     except Exception as err:
         logger.error(f'Ошибка при получении постов из пользовательских каналов: {err}')
