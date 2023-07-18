@@ -103,19 +103,6 @@ class GeneralChannel(Base):
     def __repr__(self):
         return f"<GeneralChannels(username='{self.username}')>"
 
-class CategoryPost(Base):
-    __tablename__ = 'category_post'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    user_tg_id = Column(Integer, ForeignKey('user.id'))
-    general_post = Column(Integer, ForeignKey('general_post.id'))
-    category_id = Column(Integer, ForeignKey('category.id'))
-    general_channel_id = Column(Integer, ForeignKey("general_channel.id"))
-
-    general_channel_connection = relationship('GeneralChannel', back_populates='general_post_connection')
-
-    def __repr__(self):
-        return f"<GeneralPost(text='{self.text}', image_path='{self.image_path}', likes='{self.likes}', dislikes='{self.dislikes}')>"
-
 
 class GeneralPost(Base):
     __tablename__ = 'general_post'
