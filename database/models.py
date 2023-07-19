@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, Text, text, BigInteger
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, Text, text, BigInteger, VARBINARY
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy_utils import database_exists, create_database
@@ -96,6 +96,7 @@ class GeneralChannel(Base):
     __tablename__ = 'general_channel'
     id = Column(Integer, primary_key=True)
     username = Column(String(50))
+    entities = Column(Text)
     category_id = Column(Integer, ForeignKey('category.id'))
 
     category_connection = relationship('Category', back_populates='general_channel_connection')
@@ -128,7 +129,7 @@ query = "SET NAMES 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'"
 session.execute(text(query))
 session.commit()
 
-# Base.metadata.create_all(engine)
+Base.metadata.create_all(engine)
 
 
 def create_categories():

@@ -58,7 +58,7 @@ async def get_general_channel(channel_username: str):
 async def get_personal_posts(user_tg_id: int):
     session = Session()
     try:
-        query = f'select personal_post.id, personal_channel.username, personal_post.text, personal_post.image_path from user join user_channel on user_channel.user_id = user.user_tg_id join personal_post on user_channel.channel_id = personal_post.channel_id join personal_channel on personal_channel.id = user_channel.channel_id where user.user_tg_id = {user_tg_id}'
+        query = f'select personal_post.id, personal_channel.username, personal_post.text, personal_post.image_path, personal_post.entities from user join user_channel on user_channel.user_id = user.user_tg_id join personal_post on user_channel.channel_id = personal_post.channel_id join personal_channel on personal_channel.id = user_channel.channel_id where user.user_tg_id = {user_tg_id}'
         records = session.execute(text(query))
         personal_posts = []
         for record in records:
@@ -148,7 +148,8 @@ async def get_categories_posts(user_tg_id) -> list:
     session = Session()
     try:
         records = session.query(
-            GeneralPost.id, GeneralPost.image_path, GeneralPost.text, GeneralChannel.category_id, GeneralChannel.username).select_from(User).join(UserCategory,User.user_tg_id == UserCategory.user_id). \
+            GeneralPost.id, GeneralPost.image_path, GeneralPost.text, GeneralChannel.category_id,
+            GeneralChannel.username).select_from(User).join(UserCategory, User.user_tg_id == UserCategory.user_id). \
             join(GeneralChannel, UserCategory.category_id == GeneralChannel.category_id). \
             join(GeneralPost, GeneralChannel.id == GeneralPost.general_channel_id).filter(
             User.user_tg_id == user_tg_id).all()

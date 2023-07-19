@@ -14,12 +14,7 @@ from keyboards import general_reply_buttons_texts
 
 
 async def on_start_message(message: Message, state: FSMContext):
-    user_tg_id = message.from_user.id
     current_state = await state.get_state()
-    user_is_admin = user_tg_id in ADMINS
-
-    print(current_state)
-
     if current_state == 'RecommendationsStates:RECOMMENDATIONS_FEED':
         await send_post_in_recommendations_feed(message)
     elif current_state == 'CategoriesStates:CATEGORIES_FEED':

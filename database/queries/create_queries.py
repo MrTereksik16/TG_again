@@ -65,10 +65,13 @@ async def create_general_channel(channel_username: str, category_id: int):
 async def create_personal_post(data: list[dict]):
     session = Session()
     try:
+        print(data)
         channel_username = data[0]['channel_name']
         chat_id = data[0]['chat_id']
         for info in data:
-            personal_post = PersonalPost(text=info['text'], image_path=info['media_id'], channel_id=info['channel_id'])
+            entities = info['entities']
+            personal_post = PersonalPost(text=info['text'], image_path=info['media_id'], channel_id=info['channel_id'],
+                                         entities=entities)
             session.add(personal_post)
             session.flush()
         session.commit()
@@ -88,8 +91,9 @@ async def create_general_post(data: list[dict]):
         chat_id = data[0]['chat_id']
         channel_username = data[0]['channel_name']
         for info in data:
+            entities = info['entities']
             general_post = GeneralPost(text=info['text'], image_path=info['media_id'], likes=1, dislikes=1,
-                                       general_channel_id=info['channel_id'])
+                                       general_channel_id=info['channel_id'], entities=entities)
             session.add(general_post)
             session.flush()
         session.commit()

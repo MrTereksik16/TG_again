@@ -1,4 +1,7 @@
-from aiogram.types import ChatActions, InputFile, KeyboardButton, Message
+import base64
+import pickle
+from re import match, sub
+from aiogram.types import ChatActions, InputFile, KeyboardButton
 from config.config import ADMINS
 from create_bot import client
 from database.queries.create_queries import *
@@ -17,11 +20,10 @@ async def convert_categories_to_string(categories) -> str:
 async def send_post_in_personal_feed(message: Message):
     user_tg_id = message.from_user.id
     chat_id = message.chat.id
-
     personal_posts = await get_personal_posts(user_tg_id)
     last_post_id = await get_user_last_personal_post_id(user_tg_id)
     user_channels = await get_user_channels(user_tg_id)
-    keyboard = personal_reply_keyboards.personal_control_keyboard
+    keyboard = personal_reply_keyboards.personal_control_keyboard2
 
     if personal_posts:
         for post in personal_posts:
@@ -29,31 +31,24 @@ async def send_post_in_personal_feed(message: Message):
                 next_post = post
                 break
         else:
-            return await message.answer(answers.POST_ARE_OVER)
-
+            return await message.answer(answers.POST_ARE_OVER, reply_markup=personal_reply_keyboards.personal_start_control_keyboard)
+        entities = pickle.loads(base64.b64decode(post.entities))
         text = next_post.text
         media_path = next_post.image_path
         channel_username = next_post.username
-        message_text = f"{text}\nChannel Name: @{channel_username}"
+        message_text = f"{text}\nИсточник: @{channel_username}"
         try:
             if media_path is not None:
                 if media_path.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')):
-                    await bot.send_chat_action(chat_id, action=ChatActions.UPLOAD_PHOTO)
-                    await bot.send_photo(chat_id=chat_id, photo=InputFile(media_path), caption=message_text,
-                                         reply_markup=keyboard)
+                    await client.send_photo(chat_id, media_path, caption=message_text, caption_entities=entities, reply_markup=keyboard)
                 elif media_path.lower().endswith(('.mp4', '.mov', '.avi')):
-                    await bot.send_chat_action(chat_id, action=ChatActions.UPLOAD_VIDEO)
-                    await bot.send_video(chat_id=chat_id, video=InputFile(media_path), caption=message_text,
-                                         reply_markup=keyboard)
+                    await client.send_video(chat_id, media_path, caption=message_text, caption_entities=entities, reply_markup=keyboard)
             else:
-                await bot.send_message(chat_id, text=message_text, reply_markup=keyboard)
+                await client.send_message(chat_id, text=message_text, entities=entities, reply_markup=keyboard)
         except Exception as err:
-            if 'Message caption is too long' in str(err):
-                await bot.answer('Упс. Пост слишком большой', reply_markup=keyboard)
+            await message.answer('Упс. Не получилось получить этот пост 😬', reply_markup=keyboard)
             logger.error(f'Ошибка при отправлении поста пользователю: {err}')
-
         await update_user_last_personal_post_id(user_tg_id, next_post.id)
-
     elif user_channels:
         for channel in user_channels:
             await parse(message, channel, keyboard)
@@ -65,8 +60,9 @@ async def send_post_in_recommendations_feed(message: Message):
     user_tg_id = message.from_user.id
     chat_id = message.chat.id
     general_posts = await get_general_posts()
-    keyboard = recommendations_reply_keyboards.recommendations_admin_control_keyboard if user_tg_id in ADMINS else recommendations_reply_keyboards.recommendations_control_keyboard
-
+    user_is_admin = user_tg_id in ADMINS
+    keyboard = recommendations_reply_keyboards.recommendations_admin_control_keyboard if user_is_admin else recommendations_reply_keyboards.recommendations_control_keyboard
+    no_post_keyboard = recommendations_reply_keyboards.recommendations_admin_start_control_keyboard if user_is_admin else recommendations_reply_keyboards.recommendations_admin_control_keyboard
     if general_posts:
         last_post_id = await get_user_last_general_post_id(user_tg_id)
 
@@ -86,30 +82,28 @@ async def send_post_in_recommendations_feed(message: Message):
             if media_path is not None:
                 if media_path.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')):
                     await bot.send_chat_action(chat_id, action=ChatActions.UPLOAD_PHOTO)
-                    await bot.send_photo(chat_id=chat_id, photo=InputFile(media_path), caption=message_text,
-                                         reply_markup=keyboard)
+                    await client.send_photo(chat_id, media_path, caption=message_text, reply_markup=keyboard)
                 elif media_path.lower().endswith(('.mp4', '.mov', '.avi')):
                     await bot.send_chat_action(chat_id, action=ChatActions.UPLOAD_VIDEO)
-                    await bot.send_video(chat_id=chat_id, video=InputFile(media_path), caption=message_text,
-                                         reply_markup=keyboard)
+                    await bot.send_video(chat_id, media_path, caption=message_text, reply_markup=keyboard)
             else:
                 await bot.send_message(chat_id, text=message_text)
         except Exception as err:
-            if 'Message caption is too long' in str(err):
-                await bot.answer('Упс. Пост слишком большой', reply_markup=keyboard)
+            await bot.answer('Упс. Не получилось получить этот пост 😬', reply_markup=keyboard)
             logger.error(f'Ошибка при отправлении поста пользователю: {err}')
 
         await update_user_last_general_post_id(user_tg_id, next_post.id)
     else:
-        await message.answer("Нет доступных постов")
+        await message.answer("Нет доступных постов", reply_markup=no_post_keyboard)
 
 
 async def send_post_in_categories_feed(message: Message):
     user_tg_id = message.from_user.id
     chat_id = message.chat.id
+    user_is_admin = user_tg_id in ADMINS
     categories_posts = await get_categories_posts(user_tg_id)
-    keyboard = categories_reply_keyboards.categories_admin_control_keyboard if user_tg_id in ADMINS else categories_reply_keyboards.categories_control_keyboard
-
+    keyboard = categories_reply_keyboards.categories_admin_control_keyboard if user_is_admin else categories_reply_keyboards.categories_control_keyboard
+    no_post_keyboard = categories_reply_keyboards.categories_admin_start_control_keyboard if user_is_admin else categories_reply_keyboards.categories_start_control_keyboard
     if categories_posts:
         for post in categories_posts:
             last_post_id = await get_user_last_category_post_id(user_tg_id, post.category_id)
@@ -137,13 +131,12 @@ async def send_post_in_categories_feed(message: Message):
             else:
                 await bot.send_message(chat_id, text=message_text, reply_markup=keyboard)
         except Exception as err:
-            if 'Message caption is too long' in str(err):
-                await bot.answer('Упс. Пост слишком большой', reply_markup=keyboard)
+            await bot.answer('Упс. Не получилось получить этот пост 😬', reply_markup=keyboard)
             logger.error(f'Ошибка при отправлении поста пользователю: {err}')
 
         await update_user_last_category_post_id(user_tg_id, next_post.category_id, next_post.id)
     else:
-        await message.answer("Нет доступных постов ")
+        await message.answer("Нет доступных постов ", reply_markup=no_post_keyboard)
 
 
 async def add_channels_from_message(message: Message,
@@ -156,14 +149,26 @@ async def add_channels_from_message(message: Message,
     already_added = []
     admin_panel_mode = user_tg_id in ADMINS and category
     for link in links:
+        # try:
+        #     channel_tg_entity = await client.get_chat(link)
+        # except Exception as err:
+        #     logger.error(f'Ошибка при получении сущности чата: {err}')
+        #     not_added.append(f'@{link.split("/")[-1].split("?")[0].replace("@", "")}')
+        #     continue
         try:
-            channel_tg_entity = await client.get_entity(link)
+            if not match(r'^@[a-zA-Z0-9_]+', link):
+                link = sub(r"https://t.me/(\w+)", r"\1", link)
+
+            channel_entity = await client.get_chat(link)
         except Exception as err:
             logger.error(f'Ошибка при получении сущности чата: {err}')
             not_added.append(f'@{link.split("/")[-1].split("?")[0].replace("@", "")}')
             continue
 
-        channel_username = channel_tg_entity.username
+        if not channel_entity.username:
+            channel_entity.username = link
+
+        channel_username = channel_entity.username
         if admin_panel_mode:
             category_id = int(category[0])
             result = await create_general_channel(channel_username, category_id)
