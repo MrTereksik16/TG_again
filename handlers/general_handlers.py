@@ -30,7 +30,7 @@ async def on_admin_panel_message(message: Message, state: FSMContext):
     await state.set_state(AdminPanelStates.ADMIN_PANEL)
     user_tg_id = message.from_user.id
     if user_tg_id in ADMINS:
-        await message.answer('*Админ панель*', reply_markup=admin_reply_keyboards.admin_panel_control_keyboard)
+        await message.answer('<b>Админ панель</b>', reply_markup=admin_reply_keyboards.admin_panel_control_keyboard)
 
 
 def register_generals_handlers(dp):

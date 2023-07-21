@@ -1,5 +1,4 @@
-from aiogram.types import ReplyKeyboardMarkup
-from pyrogram import types
+from pyrogram.types import ReplyKeyboardMarkup
 from .categories_reply_buttons import *
 
 start_control_buttons = [
@@ -10,7 +9,7 @@ start_control_buttons = [
 
 admin_start_control_buttons = [
     [start_button],
-    [add_delete_user_categories_button],
+    [add_delete_user_categories_button, to_admin_panel_button],
     [to_recommendations_button, to_personal_button]
 ]
 
@@ -30,8 +29,3 @@ categories_control_keyboard = ReplyKeyboardMarkup(control_buttons, resize_keyboa
 categories_admin_control_keyboard = ReplyKeyboardMarkup(admin_control_buttons, resize_keyboard=True)
 categories_start_control_keyboard = ReplyKeyboardMarkup(start_control_buttons, resize_keyboard=True)
 categories_admin_start_control_keyboard = ReplyKeyboardMarkup(admin_start_control_buttons, resize_keyboard=True)
-
-categories_control_keyboard2 = types.ReplyKeyboardMarkup(control_buttons, resize_keyboard=True)
-categories_admin_control_keyboard2 = types.ReplyKeyboardMarkup(admin_control_buttons, resize_keyboard=True)
-categories_start_control_keyboard2 = types.ReplyKeyboardMarkup(start_control_buttons, resize_keyboard=True)
-categories_admin_start_control_keyboard2 = types.ReplyKeyboardMarkup(admin_start_control_buttons, resize_keyboard=True)

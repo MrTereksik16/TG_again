@@ -22,7 +22,7 @@ async def on_personal_feed_message(message: Message, state: FSMContext):
     await state.set_state(PersonalStates.PERSONAL_FEED)
 
     if user_channels:
-        await message.answer('*Личная лента*')
+        await message.answer('<b>Личная лента</b>')
         await on_list_channels_message(message)
     else:
         await on_add_channels_message(message, state)
@@ -47,18 +47,17 @@ async def on_add_channels_inline_click(callback: CallbackQuery, state: FSMContex
 
 
 async def on_channels_message(message: Message, state: FSMContext):
-    keyboard = personal_reply_keyboards.personal_wait_for_parse_keyboard
     data = await add_channels_from_message(message)
     answer = data['answer']
     added = data['added']
     if added:
-        await message.answer(answer, reply_markup=personal_reply_keyboards.personal_wait_for_parse_keyboard)
+        await message.answer(answer, reply_markup=ReplyKeyboardRemove())
 
     else:
         await message.answer(answer, reply_markup=personal_reply_keyboards.personal_start_control_keyboard)
 
     for username in added:
-        data = await parse(message, username, keyboard, limit=10)
+        data = await parse(message, username, limit=10)
         await create_personal_post(data)
     await state.set_state(PersonalStates.PERSONAL_FEED)
 
@@ -119,9 +118,9 @@ async def on_delete_user_channel_inline_click(callback: CallbackQuery, state: FS
             await msg.edit_text(answers.EMPTY_USER_LIST_CHANNELS_MESSAGE)
         else:
             await msg.edit_reply_markup(reply_markup=edited_keyboard)
-        await callback.answer('*Канал успешно удалён из списка*')
+        await callback.answer('<b>Канал успешно удалён из списка</b>')
     else:
-        await callback.answer('*Не удалось удалить канал*')
+        await callback.answer('<b>Не удалось удалить канал</b>')
 
 
 async def on_skip_message(message: Message):

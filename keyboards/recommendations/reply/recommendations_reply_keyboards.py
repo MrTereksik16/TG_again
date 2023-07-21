@@ -1,5 +1,4 @@
-from aiogram.types import ReplyKeyboardMarkup
-from pyrogram import types
+from pyrogram.types import ReplyKeyboardMarkup
 from .recommendations_reply_buttons import *
 from keyboards.general.reply.general_reply_buttons import *
 
@@ -29,8 +28,3 @@ recommendations_control_keyboard = ReplyKeyboardMarkup(control_buttons, resize_k
 recommendations_admin_control_keyboard = ReplyKeyboardMarkup(admin_control_buttons, resize_keyboard=True)
 recommendations_start_control_keyboard = ReplyKeyboardMarkup(start_control_buttons, resize_keyboard=True)
 recommendations_admin_start_control_keyboard = ReplyKeyboardMarkup(admin_start_control_buttons, resize_keyboard=True)
-
-recommendations_control_keyboard2 = types.ReplyKeyboardMarkup(control_buttons, resize_keyboard=True)
-recommendations_admin_control_keyboard2 = types.ReplyKeyboardMarkup(admin_control_buttons, resize_keyboard=True)
-recommendations_start_control_keyboard2 = types.ReplyKeyboardMarkup(start_control_buttons, resize_keyboard=True)
-recommendations_admin_start_control_keyboard2 = types.ReplyKeyboardMarkup(admin_start_control_buttons, resize_keyboard=True)

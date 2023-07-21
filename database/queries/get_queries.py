@@ -45,9 +45,7 @@ async def get_user_channels(user_tg_id: int):
 async def get_general_channel(channel_username: str):
     session = Session()
     try:
-        logger.error(channel_username)
         channel = session.query(GeneralChannel).filter(GeneralChannel.username == channel_username).first()
-        logger.error(channel)
         return channel
     except Exception as err:
         logger.error(f'Ошибка при получении канала пользователя: {err}')
@@ -148,7 +146,7 @@ async def get_categories_posts(user_tg_id) -> list:
     session = Session()
     try:
         records = session.query(
-            GeneralPost.id, GeneralPost.image_path, GeneralPost.text, GeneralChannel.category_id,
+            GeneralPost.id, GeneralPost.image_path, GeneralPost.text, GeneralChannel.category_id, GeneralPost.entities,
             GeneralChannel.username).select_from(User).join(UserCategory, User.user_tg_id == UserCategory.user_id). \
             join(GeneralChannel, UserCategory.category_id == GeneralChannel.category_id). \
             join(GeneralPost, GeneralChannel.id == GeneralPost.general_channel_id).filter(

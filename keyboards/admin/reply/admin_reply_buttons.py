@@ -1,4 +1,4 @@
-from aiogram.types import KeyboardButton
+from pyrogram.types import KeyboardButton
 from .admin_reply_buttons_texts import *
 from keyboards.general.reply.general_reply_buttons import TO_RECOMMENDATIONS_BUTTON_TEXT, TO_CATEGORIES_BUTTON_TEXT
 

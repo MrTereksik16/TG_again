@@ -1,4 +1,5 @@
-from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, Text, text, BigInteger, VARBINARY
+from sqlalchemy.sql.sqltypes import BLOB
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, Text, text, BigInteger
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy_utils import database_exists, create_database
@@ -45,7 +46,7 @@ class UserChannel(Base):
 class PersonalChannel(Base):
     __tablename__ = 'personal_channel'
     id = Column(Integer, primary_key=True, autoincrement=True)
-    username = Column(String(100), nullable=False, unique=True)
+    username = Column(String(100),  unique=True, nullable=False)
 
     user_channel_connection = relationship('UserChannel', back_populates='personal_channel_connection')
 
@@ -60,7 +61,7 @@ class PersonalPost(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     text = Column(Text)
     image_path = Column(Text)
-    entities = Column(Text)
+    entities = Column(BLOB)
     channel_id = Column(Integer, ForeignKey('personal_channel.id'))
 
     personal_channel_connection = relationship('PersonalChannel', back_populates='personal_post_connection')
@@ -95,9 +96,8 @@ class Category(Base):
 class GeneralChannel(Base):
     __tablename__ = 'general_channel'
     id = Column(Integer, primary_key=True)
-    username = Column(String(50))
-    entities = Column(Text)
-    category_id = Column(Integer, ForeignKey('category.id'))
+    username = Column(String(32), unique=True, nullable=False)
+    category_id = Column(Integer, ForeignKey('category.id'), nullable=False)
 
     category_connection = relationship('Category', back_populates='general_channel_connection')
     general_post_connection = relationship('GeneralPost', back_populates='general_channel_connection')
@@ -111,6 +111,7 @@ class GeneralPost(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     text = Column(Text)
     image_path = Column(Text)
+    entities = Column(BLOB)
     likes = Column(Integer)
     dislikes = Column(Integer)
     general_channel_id = Column(Integer, ForeignKey("general_channel.id"))
@@ -122,7 +123,7 @@ class GeneralPost(Base):
 
 
 # Пересоздаёт бд
-# Base.metadata.drop_all(engine, checkfirst=True)
+Base.metadata.drop_all(engine, checkfirst=True)
 
 session = Session()
 query = "SET NAMES 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'"

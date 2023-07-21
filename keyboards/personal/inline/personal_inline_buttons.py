@@ -1,4 +1,4 @@
-from aiogram.types import InlineKeyboardButton
+from pyrogram.types import InlineKeyboardButton
 from callbacks import callbacks
 from .personal_inline_buttons_texts import *
 

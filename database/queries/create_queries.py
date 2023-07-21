@@ -1,6 +1,6 @@
 from aiogram.types import Message
 
-from create_bot import bot
+from create_bot import bot, bot_client
 from utils.consts import errors
 from config.logging_config import logger
 from database.models import Session, GeneralChannel, UserChannel, User, PersonalPost, PersonalChannel, UserCategory, \
@@ -64,21 +64,28 @@ async def create_general_channel(channel_username: str, category_id: int):
 
 async def create_personal_post(data: list[dict]):
     session = Session()
+    keyboard = personal_reply_keyboards.personal_start_control_keyboard
+
+    channel_username = data[0]['channel_username']
+    chat_id = data[0]['chat_id']
+
     try:
-        print(data)
-        channel_username = data[0]['channel_name']
-        chat_id = data[0]['chat_id']
+
         for info in data:
             entities = info['entities']
-            personal_post = PersonalPost(text=info['text'], image_path=info['media_id'], channel_id=info['channel_id'],
-                                         entities=entities)
+            text = info['text']
+            image_path = info['media_path']
+            channel_id = info['channel_id']
+            personal_post = PersonalPost(text=text, image_path=image_path, channel_id=channel_id, entities=entities)
             session.add(personal_post)
             session.flush()
         session.commit()
-        await bot.send_message(chat_id, f'Посты с канала {channel_username} получены 👍',
-                               reply_markup=personal_reply_keyboards.personal_start_control_keyboard)
+        await bot_client.send_message(chat_id, f'Посты с канала {channel_username} получены 👍',
+                                      reply_markup=keyboard)
         return True
     except Exception as err:
+        await bot_client.send_message(chat_id, f'Не удалось получить посты с канала {channel_username}',
+                                      reply_markup=keyboard)
         logger.error(f'Ошибка при добавлении пользовательского поста: {err}')
         return False
     finally:
@@ -87,20 +94,29 @@ async def create_personal_post(data: list[dict]):
 
 async def create_general_post(data: list[dict]):
     session = Session()
+    keyboard = admin_reply_keyboards.admin_panel_control_keyboard
+
+    channel_username = data[0]['channel_username']
+    chat_id = data[0]['chat_id']
+
     try:
-        chat_id = data[0]['chat_id']
-        channel_username = data[0]['channel_name']
         for info in data:
             entities = info['entities']
-            general_post = GeneralPost(text=info['text'], image_path=info['media_id'], likes=1, dislikes=1,
-                                       general_channel_id=info['channel_id'], entities=entities)
+            text = info['text']
+            image_path = info['media_path']
+            channel_id = info['channel_id']
+
+            general_post = GeneralPost(text=text, image_path=image_path, likes=0, dislikes=0,
+                                       general_channel_id=channel_id, entities=entities)
             session.add(general_post)
             session.flush()
         session.commit()
-        await bot.send_message(chat_id, f'Посты с канала {channel_username} получены 👍',
-                               reply_markup=admin_reply_keyboards.admin_panel_control_keyboard)
+        await bot_client.send_message(chat_id, f'Посты с канала {channel_username} получены 👍',
+                                      reply_markup=keyboard)
         return True
     except Exception as err:
+        await bot_client.send_message(chat_id, f'Не удалось получить посты с канала {channel_username}',
+                                      reply_markup=keyboard)
         logger.error(f'Ошибка при добавлении общего поста: {err}')
         return False
     finally:
