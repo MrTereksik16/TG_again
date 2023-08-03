@@ -42,7 +42,7 @@ async def on_add_or_delete_user_categories_message(message: Message, state: FSMC
     cat_buttons = await create_categories_buttons(categories)
     keyboard = [[cat_buttons[i], cat_buttons[i + 1]] for i in range(0, len(cat_buttons) - 1, 2)]
     keyboard.insert(0, [general_reply_buttons.close_button])
-    keyboard = ReplyKeyboardMarkup(keyboard)
+    keyboard = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
     answer = 'Наш список категорий, но он обязательно будет обновляться:\n\n'
     answer += await convert_categories_to_string(categories)

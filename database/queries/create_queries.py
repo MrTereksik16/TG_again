@@ -1,9 +1,9 @@
 from sqlalchemy.exc import NoResultFound
-
 from create_bot import bot_client
+from database.create_db import Session
 from utils.consts import errors
 from config.logging_config import logger
-from database.models import Session, UserChannel, User, PersonalPost, PersonalChannel, UserCategory, \
+from database.models import UserChannel, User, PersonalPost, PersonalChannel, UserCategory, \
     PremiumPost, CategoryChannel, PremiumChannel, CategoryPost, UserViewedPremiumPost, \
     UserViewedCategoryPost, UserViewedPersonalPost
 from keyboards import personal_reply_keyboards, admin_reply_keyboards

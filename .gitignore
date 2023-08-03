@@ -1,6 +1,7 @@
 media/*
 .idea
 *.session
+*.session-journal
 *.log
 **/__pycache__/
 config/

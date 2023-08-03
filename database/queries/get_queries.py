@@ -1,10 +1,7 @@
-from sqlalchemy import text, desc, and_
+from sqlalchemy import text
 from config.logging_config import logger
-from sqlalchemy.orm import joinedload
-
-from database.models import Session, User, PersonalChannel, UserChannel, PremiumChannel, CategoryChannel, \
-    PremiumPost, \
-    UserViewedPremiumPost, Category, UserCategory, UserViewedCategoryPost, CategoryPost, UserViewedPersonalPost
+from database.create_db import Session
+from database.models import User, PersonalChannel, UserChannel, PremiumChannel, CategoryChannel, UserViewedPremiumPost, Category, UserCategory, UserViewedCategoryPost, UserViewedPersonalPost
 
 
 async def get_user(user_tg_id: int):

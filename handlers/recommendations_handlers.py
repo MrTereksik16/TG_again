@@ -17,11 +17,10 @@ from utils.types import Modes
 async def on_start_command(message: Message, state: FSMContext):
     user_tg_id = message.from_user.id
     user = await get_user(user_tg_id)
-    keyboard = recommendations_reply_keyboards.recommendations_control_keyboard
     user_is_admin = user_tg_id in ADMINS
-
     await state.set_state(RecommendationsStates.RECOMMENDATIONS_FEED)
 
+    keyboard = recommendations_reply_keyboards.recommendations_start_control_keyboard
     if user_is_admin:
         keyboard = recommendations_reply_keyboards.recommendations_admin_start_control_keyboard
 

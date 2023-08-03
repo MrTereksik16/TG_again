@@ -1,7 +1,7 @@
 from config.logging_config import logger
-from sqlalchemy import update, text
-
-from database.models import Session, User, UserViewedPersonalPost, UserViewedCategoryPost, UserViewedPremiumPost
+from sqlalchemy import text
+from database.create_db import Session
+from database.models import User
 from utils.types import MarkTypes
 
 

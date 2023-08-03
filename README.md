@@ -21,13 +21,13 @@
 ```python
 async def delete_personal_channel(username):
     from sqlalchemy import select
-    from database.models import PersonalChannel, UserChannel, Session
-    from config import logger
+    from database.create_db import Session
+    from database.models import PersonalChannel, UserChannel
+    from config.logging_config import logger
 
     session = Session()
     try:
-        personal_channel_id =
-        session.execute(select(PersonalChannel.id).where(PersonalChannel.username == username)).fetchone()[0]
+        personal_channel_id = session.execute(select(PersonalChannel.id).where(PersonalChannel.username == username)).fetchone()[0]
         session.query(UserChannel).filter(UserChannel.channel_id == personal_channel_id).delete()
         session.flush()
         session.query(PersonalChannel).filter(PersonalChannel.id == personal_channel_id).delete()

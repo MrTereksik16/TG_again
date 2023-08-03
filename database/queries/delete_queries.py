@@ -1,7 +1,7 @@
 from sqlalchemy import select
-
 from config.logging_config import logger
-from database.models import Session, PersonalChannel, UserChannel, UserCategory, PersonalPost, PremiumChannel
+from database.create_db import Session
+from database.models import PersonalChannel, UserChannel, UserCategory, PersonalPost, PremiumChannel
 
 
 async def delete_personal_channel(username):
