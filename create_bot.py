@@ -9,8 +9,6 @@ from pyrogram import enums
 bot_client = Client('bot_session', config.API_ID, config.API_HASH, bot_token=config.TOKEN, parse_mode=enums.ParseMode.HTML)
 bot_client.start()
 
-bot = Bot(token=config.TOKEN)
-bot.parse_mode = ParseMode.HTML
-bot.disable_web_page_preview = True
+bot = Bot(token=config.TOKEN, disable_web_page_preview=True, parse_mode=ParseMode.HTML)
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)

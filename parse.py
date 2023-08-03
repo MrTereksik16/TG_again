@@ -6,21 +6,26 @@ from PIL import Image
 from config import config
 from config.logging_config import logger
 from pyrogram.types import Message
-
+from pyrogram import filters
 from create_bot import bot_client
-from database.queries.get_queries import get_personal_channel, get_general_channel
+from database.queries.get_queries import *
 import os
+
+from utils.types import Modes
 
 MEDIA_GROUP_PATH = 'media/{channel_name}/{media_group_id}'
 
 
-async def parse(message: Message, channel_username: str, admin_panel=False, limit=15):
+async def parse(message: Message, channel_username: str, mode: Modes, limit=15):
     async with Client('user_session', config.API_ID, config.API_HASH, phone_number=config.PHONE_NUMBER) as user_client:
         channel_username = channel_username.replace('@', '')
-        if admin_panel:
-            general_channel = await get_general_channel(channel_username)
+        if mode == Modes.RECOMMENDATIONS:
+            general_channel = await get_premium_channel(channel_username)
             channel_id = general_channel.id
-        else:
+        elif mode == Modes.CATEGORIES:
+            category_channel = await get_category_channel(channel_username)
+            channel_id = category_channel.id
+        elif mode == Modes.PERSONAL:
             personal_channel = await get_personal_channel(channel_username)
             channel_id = personal_channel.id
 

@@ -5,6 +5,4 @@ TO_ADMIN_PANEL_BUTTON_TEXT = 'Админ панель 👑'
 
 SKIP_BUTTON_TEXT = 'Дальше ➤'
 START_BUTTON_TEXT = 'Старт'
-
-LIKE_BUTTON_TEXT = '❤'
-DISLIKE_BUTTON_TEXT = '👎'
+CLOSE_BUTTON_TEXT = 'Закрыть'

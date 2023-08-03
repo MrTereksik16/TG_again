@@ -7,9 +7,12 @@ to_categories_button = KeyboardButton(TO_CATEGORIES_BUTTON_TEXT)
 
 list_categories_button = KeyboardButton(LIST_CATEGORIES)
 list_general_channels_button = KeyboardButton(LIST_GENERAL_CHANNELS_BUTTON_TEXT)
+list_category_channels_button = KeyboardButton(LIST_CATEGORY_CHANNELS_BUTTON_TEXT)
 
 add_general_channels_button = KeyboardButton(ADD_GENERAL_CHANNELS_BUTTON_TEXT)
+add_category_channels_button = KeyboardButton(ADD_CATEGORY_CHANNELS_BUTTON_TEXT)
 add_general_category_button = KeyboardButton(ADD_GENERAL_CATEGORY_BUTTON_TEXT)
 
 delete_general_channels_button = KeyboardButton(DELETE_GENERAL_CHANNELS_BUTTON_TEXT)
+delete_category_channels_button = KeyboardButton(DELETE_CATEGORY_CHANNELS_BUTTON_TEXT)
 delete_general_category_button = KeyboardButton(DELETE_GENERAL_CATEGORY_BUTTON_TEXT)

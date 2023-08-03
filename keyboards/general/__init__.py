@@ -1,2 +1,4 @@
 from keyboards.general.reply import general_reply_buttons
 from keyboards.general.reply import general_reply_buttons_texts
+
+from keyboards.general.inline import general_inline_buttons_texts

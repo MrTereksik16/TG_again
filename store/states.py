@@ -17,6 +17,7 @@ class RecommendationsStates(StatesGroup):
 
 class AdminPanelStates(StatesGroup):
     ADMIN_PANEL = State()
-    GET_GENERAL_CHANNEL = State()
-    GET_GENERAL_CHANNEL_CATEGORY = State()
+
     GET_CATEGORY = State()
+    GET_CATEGORY_CHANNELS = State()
+    GET_GENERAL_CHANNELS = State()

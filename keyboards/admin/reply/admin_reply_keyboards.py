@@ -2,9 +2,15 @@ from pyrogram.types import ReplyKeyboardMarkup
 from .admin_reply_buttons import *
 
 control_buttons = [
-    [add_general_channels_button, add_general_category_button],
-    [delete_general_channels_button, delete_general_category_button],
-    [list_general_channels_button, list_categories_button],
+    [add_general_channels_button],
+    [add_category_channels_button],
+    [add_general_category_button],
+    [list_general_channels_button],
+    [list_category_channels_button],
+    [list_categories_button],
+    [delete_general_channels_button],
+    [delete_category_channels_button],
+    [delete_general_category_button],
     [to_recommendations_button, to_categories_button],
 ]
 

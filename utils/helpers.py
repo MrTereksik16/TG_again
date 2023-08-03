@@ -1,214 +1,170 @@
-import base64
-import glob
 import os
 import pickle
+import random
 from re import match, sub
-
-from pyrogram.types import KeyboardButton, InputMediaPhoto, InputMediaVideo
+from aiogram.types import Message
+from pyrogram.types import KeyboardButton, InputMediaPhoto, InputMediaVideo, InlineKeyboardButton, InlineKeyboardMarkup
 from pyrogram.enums import ChatAction
 from config.config import ADMINS
 from database.queries.create_queries import *
 from database.queries.get_queries import *
 from database.queries.update_queries import *
-from keyboards.personal.inline.personal_inline_keyboards import add_user_channels_inline_keyboard
-from parse import parse
 from utils.consts import answers, errors
-from keyboards import personal_reply_keyboards, recommendations_reply_keyboards, categories_reply_keyboards
+from keyboards import personal_reply_keyboards, recommendations_reply_keyboards, categories_reply_keyboards, \
+    general_inline_buttons_texts
+from callbacks import callbacks
+from utils.types import Modes, PostTypes
+from pyrogram.types import ReplyKeyboardRemove
 
 
 async def convert_categories_to_string(categories) -> str:
     return ''.join([f'<code>{categories[i]}\n</code>' for i in range(0, len(categories))])
 
 
-async def send_post_in_personal_feed(message: Message):
-    user_tg_id = message.from_user.id
-    chat_id = message.chat.id
-    personal_posts = await get_personal_posts(user_tg_id)
-    last_post_id = await get_user_last_personal_post_id(user_tg_id)
-    user_channels = await get_user_channels(user_tg_id)
+async def send_next_post(user_tg_id: int, chat_id: int, mode: Modes, post=None):
+    if not post:
+        post = await get_next_post(user_tg_id, mode)
+        if not post:
+            return errors.NO_POST
 
-    keyboard = personal_reply_keyboards.personal_control_keyboard
+    entities = pickle.loads(post.entities)
+    text = post.text if post.text is not None else ''
+    media_path = post.image_path
+    channel_username = post.username
+    likes = post.likes
+    dislikes = post.dislikes
 
-    if personal_posts:
-        for post in personal_posts:
-            if post.id > last_post_id:
-                next_post = post
-                break
+    message_text = f"{text}\n{answers.POST_FROM_CHANNEL_MESSAGE.format(channel_username=channel_username)}"
+
+    if mode == Modes.CATEGORIES:
+        category = post.name + post.emoji
+        message_text += f'\nКатегория: `{category}`'
+
+    keyboard = ReplyKeyboardRemove()
+
+    if mode == Modes.RECOMMENDATIONS:
+        if hasattr(post, 'premium_channel_id'):
+            await create_user_viewed_premium_post(user_tg_id, post.id)
+            keyboard = create_reactions_keyboard(likes, dislikes, PostTypes.PREMIUM, post.id)
+        elif hasattr(post, 'category_channel_id'):
+            await create_user_viewed_category_post(user_tg_id, post.id)
+            keyboard = create_reactions_keyboard(likes, dislikes, PostTypes.CATEGORY, post.id)
+        elif hasattr(post, 'personal_channel_id'):
+            await create_user_viewed_personal_post(user_tg_id, post.id)
+            keyboard = create_reactions_keyboard(likes, dislikes, PostTypes.PERSONAL, post.id)
+
+    elif mode == Modes.CATEGORIES:
+        await create_user_viewed_category_post(user_tg_id, post.id)
+        keyboard = create_reactions_keyboard(likes, dislikes, PostTypes.CATEGORY, post.id)
+
+    elif mode == Modes.PERSONAL:
+        await update_user_last_personal_post_id(user_tg_id, post.id)
+        await create_user_viewed_personal_post(user_tg_id, post.id)
+        keyboard = create_reactions_keyboard(likes, dislikes, PostTypes.PERSONAL, post.id)
+
+
+    try:
+        if media_path is None:
+            await bot_client.send_message(chat_id, message_text, entities=entities, reply_markup=keyboard)
         else:
-            return await message.answer(answers.POST_ARE_OVER,
-                                        reply_markup=personal_reply_keyboards.personal_start_control_keyboard)
-        entities = pickle.loads(post.entities)
-        text = next_post.text if next_post.text is not None else ''
-        media_path = next_post.image_path
-        channel_username = next_post.username
-        message_text = f"{text}\n{answers.POST_FROM_CHANNEL_MESSAGE.format(channel_username=channel_username)}"
-
-        try:
-            if media_path is None:
-                await bot_client.send_message(chat_id, message_text, entities=entities, reply_markup=keyboard)
-            else:
-                if media_path.lower().endswith(('.jpg', '.jpeg', '.png', '.gif')):
-                    await bot_client.send_chat_action(chat_id, action=ChatAction.UPLOAD_PHOTO)
-                    await bot_client.send_photo(chat_id, media_path, caption=message_text, caption_entities=entities,
-                                                reply_markup=keyboard)
-                elif media_path.lower().endswith(('.mp4', '.mov', '.avi')):
-                    await bot_client.send_chat_action(chat_id, action=ChatAction.UPLOAD_VIDEO)
-                    await bot_client.send_video(chat_id, media_path, caption=message_text, caption_entities=entities,
-                                                reply_markup=keyboard)
-                elif os.path.isdir(media_path):
-                    media_group = []
-                    files = os.listdir(media_path)
-                    for file in files:
-                        if file.endswith('.jpg'):
-                            await bot_client.send_chat_action(chat_id, action=ChatAction.UPLOAD_PHOTO)
-                            path = os.path.join(media_path, file)
-                            media_group.append(InputMediaPhoto(path))
-                        elif file.endswith('.mp4'):
-                            await bot_client.send_chat_action(chat_id, action=ChatAction.UPLOAD_VIDEO)
-                            path = os.path.join(media_path, file)
-                            media_group.append(InputMediaVideo(path))
-                    await bot_client.send_media_group(chat_id, media_group)
-                    await bot_client.send_message(chat_id, message_text, entities=entities, reply_markup=keyboard)
-
-        except Exception as err:
-            await message.answer('Упс. Не получилось получить этот пост 😬', reply_markup=keyboard)
-            logger.error(f'Ошибка при отправлении поста пользователю: {err}')
-        await update_user_last_personal_post_id(user_tg_id, next_post.id)
-    elif user_channels:
-        for channel in user_channels:
-            await parse(message, channel, keyboard)
-    else:
-        await message.answer(answers.EMPTY_USER_LIST_CHANNELS_MESSAGE, reply_markup=add_user_channels_inline_keyboard)
+            if media_path.endswith('.jpg'):
+                await bot_client.send_chat_action(chat_id, action=ChatAction.UPLOAD_PHOTO)
+                await bot_client.send_photo(chat_id, media_path, caption=message_text, caption_entities=entities, reply_markup=keyboard)
+            elif media_path.endswith('.mp4'):
+                await bot_client.send_chat_action(chat_id, action=ChatAction.UPLOAD_VIDEO)
+                await bot_client.send_video(chat_id, media_path, caption=message_text, caption_entities=entities, reply_markup=keyboard)
+            elif os.path.isdir(media_path):
+                media_group = []
+                files = os.listdir(media_path)
+                for file in files:
+                    if file.endswith('.jpg'):
+                        await bot_client.send_chat_action(chat_id, action=ChatAction.UPLOAD_PHOTO)
+                        path = os.path.join(media_path, file)
+                        media_group.append(InputMediaPhoto(path))
+                    elif file.endswith('.mp4'):
+                        await bot_client.send_chat_action(chat_id, action=ChatAction.UPLOAD_PHOTO)
+                        path = os.path.join(media_path, file)
+                        media_group.append(InputMediaVideo(path))
+                msg = await bot_client.send_media_group(chat_id, media_group)
+                await bot_client.send_message(chat_id, message_text, entities=entities, reply_markup=keyboard, reply_to_message_id=msg[0].id)
+    except Exception as err:
+        await bot_client.send_message(chat_id, 'Упс. Не получилось получить этот пост 😬', reply_markup=keyboard)
+        logger.error(f'Ошибка при отправлении поста пользователю: {err}')
 
 
-async def send_post_in_recommendations_feed(message: Message):
-    user_tg_id = message.from_user.id
-    chat_id = message.chat.id
-    general_posts = await get_general_posts()
+async def send_end_message(user_tg_id, chat_id, mode: Modes):
+    no_post_keyboard = ReplyKeyboardRemove()
     user_is_admin = user_tg_id in ADMINS
 
-    keyboard = recommendations_reply_keyboards.recommendations_control_keyboard
-    no_post_keyboard = recommendations_reply_keyboards.recommendations_start_control_keyboard
+    if mode == Modes.RECOMMENDATIONS:
+        no_post_keyboard = recommendations_reply_keyboards.recommendations_start_control_keyboard
+    elif mode == Modes.CATEGORIES:
+        no_post_keyboard = categories_reply_keyboards.categories_start_control_keyboard
+    elif mode == Modes.PERSONAL:
+        no_post_keyboard = personal_reply_keyboards.personal_start_control_keyboard
 
     if user_is_admin:
-        keyboard = recommendations_reply_keyboards.recommendations_admin_control_keyboard
-        no_post_keyboard = recommendations_reply_keyboards.recommendations_admin_start_control_keyboard
+        if mode == Modes.RECOMMENDATIONS:
+            no_post_keyboard = recommendations_reply_keyboards.recommendations_admin_start_control_keyboard
+        elif mode == Modes.CATEGORIES:
+            no_post_keyboard = categories_reply_keyboards.categories_admin_start_control_keyboard
 
-    if general_posts:
-        last_post_id = await get_user_last_general_post_id(user_tg_id)
-        for post in general_posts:
+    await bot_client.send_message(chat_id, answers.POST_ARE_OVER, reply_markup=no_post_keyboard)
+
+
+async def get_next_post(user_tg_id: int, mode: Modes):
+    next_post = None
+
+    if mode == Modes.PERSONAL:
+        posts = await get_personal_posts(user_tg_id)
+
+        for post in posts:
+            last_post_id = await get_user_last_personal_post_id(user_tg_id)
             if post.id > last_post_id:
                 next_post = post
                 break
-        else:
-            return await message.answer(answers.POST_ARE_OVER, reply_markup=no_post_keyboard)
 
-        entities = pickle.loads(next_post.entities)
-        text = next_post.text if next_post.text is not None else ''
-        media_path = next_post.image_path
-        channel_username = next_post.general_channel_connection.username
-        message_text = f"{text}\n{answers.POST_FROM_CHANNEL_MESSAGE.format(channel_username=channel_username)}"
+    elif mode == Modes.RECOMMENDATIONS:
+        posts = []
+        premium_best_posts = await get_best_not_viewed_premium_posts(user_tg_id)
+        categories_best_posts = await get_best_not_viewed_categories_posts(user_tg_id)
+        personal_best_posts = await get_best_not_viewed_personal_posts(user_tg_id)
 
-        try:
-            if media_path is None:
-                await bot_client.send_message(chat_id, message_text, entities=entities, reply_markup=keyboard)
-            else:
-                if media_path.endswith('.jpg'):
-                    await bot_client.send_photo(chat_id, media_path, caption=message_text, caption_entities=entities,
-                                                reply_markup=keyboard)
-                elif media_path.endswith('.mp4'):
-                    await bot_client.send_chat_action(chat_id, action=ChatAction.UPLOAD_VIDEO)
-                    await bot_client.send_video(chat_id, media_path, caption=message_text, caption_entities=entities,
-                                                reply_markup=keyboard)
-                elif os.path.isdir(media_path):
-                    media_group = []
-                    files = os.listdir(media_path)
-                    for file in files:
-                        if file.endswith('.jpg'):
-                            path = os.path.join(media_path, file)
-                            await bot_client.send_chat_action(chat_id, action=ChatAction.UPLOAD_PHOTO)
-                            media_group.append(InputMediaPhoto(path))
-                        elif file.endswith('.mp4'):
-                            path = os.path.join(media_path, file)
-                            await bot_client.send_chat_action(chat_id, action=ChatAction.UPLOAD_VIDEO)
-                            media_group.append(InputMediaVideo(path))
-                    await bot_client.send_media_group(chat_id, media_group)
-                    await bot_client.send_message(chat_id, message_text, entities=entities, reply_markup=keyboard)
+        for post in premium_best_posts:
+            posts.append(post)
 
-        except Exception as err:
-            await bot_client.send_message(chat_id, 'Упс. Не получилось получить этот пост 😬', reply_markup=keyboard)
-            logger.error(f'Ошибка при отправлении поста пользователю: {err}')
+        for post in categories_best_posts:
+            posts.append(post)
 
-        await update_user_last_general_post_id(user_tg_id, next_post.id)
-    else:
-        await message.answer("Нет доступных постов", reply_markup=no_post_keyboard)
+        for post in personal_best_posts:
+            posts.append(post)
+
+        next_post = choose_post(posts)
+
+    elif mode == Modes.CATEGORIES:
+        posts = await get_best_not_viewed_categories_posts(user_tg_id)
+        next_post = choose_post(posts)
+
+    return next_post
 
 
-async def send_post_in_categories_feed(message: Message):
-    user_tg_id = message.from_user.id
-    chat_id = message.chat.id
-    user_is_admin = user_tg_id in ADMINS
-    categories_posts = await get_categories_posts(user_tg_id)
+def choose_post(posts: list):
+    if not posts:
+        return None
 
-    keyboard = categories_reply_keyboards.categories_control_keyboard
-    no_post_keyboard = categories_reply_keyboards.categories_start_control_keyboard
+    total_weight = sum(post.coefficient for post in posts)
+    random_num = random.uniform(0, total_weight)
 
-    if user_is_admin:
-        keyboard = categories_reply_keyboards.categories_admin_control_keyboard
-        no_post_keyboard = categories_reply_keyboards.categories_admin_start_control_keyboard
+    for post in posts:
+        random_num -= post.coefficient
+        if random_num <= 0:
+            return post
 
-    if categories_posts:
-        for post in categories_posts:
-            last_post_id = await get_user_last_category_post_id(user_tg_id, post.category_id)
-            if post.id > last_post_id:
-                next_post = post
-                break
-        else:
-            return await message.answer(answers.POST_ARE_OVER, no_post_keyboard)
-
-        entities = pickle.loads(next_post.entities)
-        text = next_post.text if next_post.text is not None else ''
-        media_path = next_post.image_path
-        channel_username = next_post.username
-
-        message_text = f"{text}\n{answers.POST_FROM_CHANNEL_MESSAGE.format(channel_username=channel_username)}"
-
-        try:
-            if media_path is None:
-                await bot_client.send_message(chat_id, message_text, entities=entities, reply_markup=keyboard)
-            else:
-                if media_path.endswith('.jpg'):
-                    await bot_client.send_chat_action(chat_id, action=ChatAction.UPLOAD_PHOTO)
-                    await bot_client.send_photo(chat_id, media_path, caption=message_text, caption_entities=entities,
-                                                reply_markup=keyboard)
-                elif media_path.endswith('.mp4'):
-                    await bot_client.send_chat_action(chat_id, action=ChatAction.UPLOAD_VIDEO)
-                    await bot_client.send_video(chat_id, media_path, caption=message_text, caption_entities=entities,
-                                                reply_markup=keyboard)
-                elif os.path.isdir(media_path):
-                    media_group = []
-                    files = os.listdir(media_path)
-                    for file in files:
-                        if file.endswith('.jpg'):
-                            await bot_client.send_chat_action(chat_id, action=ChatAction.UPLOAD_PHOTO)
-                            path = os.path.join(media_path, file)
-                            media_group.append(InputMediaPhoto(path))
-                        elif file.endswith('.mp4'):
-                            await bot_client.send_chat_action(chat_id, action=ChatAction.UPLOAD_PHOTO)
-                            path = os.path.join(media_path, file)
-                            media_group.append(InputMediaVideo(path))
-                    await bot_client.send_media_group(chat_id, media_group)
-                    await bot_client.send_message(chat_id, message_text, entities=entities, reply_markup=keyboard)
-        except Exception as err:
-            await message.answer('Упс. Не получилось получить этот пост 😬', reply_markup=keyboard)
-            logger.error(f'Ошибка при отправлении поста пользователю: {err}')
-
-        await update_user_last_category_post_id(user_tg_id, next_post.category_id, next_post.id)
-    else:
-        await message.answer("Нет доступных постов ", reply_markup=no_post_keyboard)
+    return posts[0]
 
 
 async def add_channels_from_message(message: Message,
+                                    mode: Modes,
                                     category='',
                                     ) -> dict[str | list[str]]:
     links = [link.strip() for link in message.text.split(',') if link.strip()]
@@ -216,7 +172,6 @@ async def add_channels_from_message(message: Message,
     added = []
     not_added = []
     already_added = []
-    admin_panel_mode = user_tg_id in ADMINS and category
     for link in links:
         try:
             if not match(r'^@[a-zA-Z0-9_]+', link):
@@ -232,11 +187,17 @@ async def add_channels_from_message(message: Message,
             channel_entity.username = link
 
         channel_username = channel_entity.username
-        if admin_panel_mode:
-            category_id = int(category[0])
-            result = await create_general_channel(channel_username, category_id)
-        else:
-            result = await create_user_channel(user_tg_id, channel_username)
+        channel_tg_id = channel_entity.id
+
+        result = None
+
+        if mode == Modes.RECOMMENDATIONS:
+            result = await create_recommendation_channel(channel_tg_id, channel_username)
+        elif mode == Modes.CATEGORIES:
+            category_id = int(category.split('.')[0])
+            result = await create_category_channel(channel_tg_id, channel_username, category_id)
+        elif mode == Modes.PERSONAL:
+            result = await create_personal_channel(user_tg_id, channel_tg_id, channel_username)
 
         if result == errors.DUPLICATE_ENTRY_ERROR:
             already_added.append(f'@{channel_username}')
@@ -246,11 +207,12 @@ async def add_channels_from_message(message: Message,
             not_added.append(f'@{link.split("/")[-1].split("?")[0].replace("@", "")}')
 
     answer = ''
-    if admin_panel_mode:
+
+    if mode == Modes.CATEGORIES:
         if added:
             answer += answers.CHANNELS_ADDED_WITH_CATEGORY_MESSAGE.format(
                 category=category.split(". ", 1)[1]) + ', '.join(added)
-    else:
+    elif mode == Modes.PERSONAL or mode == Modes.RECOMMENDATIONS:
         if added:
             answer += answers.CHANNELS_ADDED_MESSAGE + ', '.join(added)
 
@@ -267,3 +229,22 @@ async def create_categories_buttons(categories):
     for category in categories:
         categories_buttons.append(KeyboardButton(text=category))
     return categories_buttons
+
+
+def create_reactions_keyboard(likes: int, dislikes: int, post_type: PostTypes, post_id: int):
+    if likes >= 1000:
+        likes = f"{likes // 1000}K"
+
+    if dislikes >= 1000:
+        dislikes = f"{dislikes // 1000}K"
+
+
+    like_button = InlineKeyboardButton(f"{general_inline_buttons_texts.LIKE_BUTTON_TEXT} {likes}",
+                                       callback_data=f'{callbacks.LIKE}:{post_type}:{post_id}:{likes}:{dislikes}')
+
+    dislike_button = InlineKeyboardButton(f"{general_inline_buttons_texts.DISLIKE_BUTTON_TEXT} {dislikes}",
+                                          callback_data=f'{callbacks.DISLIKE}:{post_type}:{post_id}:{likes}:{dislikes}')
+
+    keyboard = InlineKeyboardMarkup([[like_button, dislike_button]])
+
+    return keyboard

@@ -1,175 +1,269 @@
-from sqlalchemy import text
+from sqlalchemy import text, desc, and_
 from config.logging_config import logger
-from database.models import PersonalChannel, Session, User, UserChannel, Category, UserCategory, GeneralChannel, \
-    GeneralPost
+from sqlalchemy.orm import joinedload
+
+from database.models import Session, User, PersonalChannel, UserChannel, PremiumChannel, CategoryChannel, \
+    PremiumPost, \
+    UserViewedPremiumPost, Category, UserCategory, UserViewedCategoryPost, CategoryPost, UserViewedPersonalPost
 
 
 async def get_user(user_tg_id: int):
     session = Session()
+    user = None
     try:
         user = session.get(User, user_tg_id)
-        return user
     except Exception as err:
         logger.error(err)
     finally:
         session.close()
+        return user
 
 
 async def get_personal_channel(channel_username: str):
     session = Session()
+    channel = None
     try:
-        channel = session.query(PersonalChannel).filter(PersonalChannel.username == channel_username).first()
-        return channel
+        channel = session.query(PersonalChannel).filter(PersonalChannel.username == channel_username).one()
     except Exception as err:
         logger.error(f'Ошибка при получении канала пользователя: {err}')
     finally:
         session.close()
+        return channel
 
 
 async def get_user_channels(user_tg_id: int):
     session = Session()
+    channels = []
     try:
         records = session.query(PersonalChannel.username).select_from(User).join(UserChannel).join(
-            PersonalChannel).filter(User.user_tg_id == user_tg_id)
+            PersonalChannel).filter(User.id == user_tg_id)
         channels = []
         for record in records:
             channels.append(record.username)
 
-        return channels
     except Exception as err:
         logger.error(f'Ошибка при получении списка каналов пользователя: {err}')
     finally:
         session.close()
+        return channels
 
 
-async def get_general_channel(channel_username: str):
+async def get_premium_channel(channel_username: str):
     session = Session()
+    channel = None
     try:
-        channel = session.query(GeneralChannel).filter(GeneralChannel.username == channel_username).first()
-        return channel
+        channel = session.query(PremiumChannel).filter(
+            PremiumChannel.username == channel_username).one()
     except Exception as err:
-        logger.error(f'Ошибка при получении канала пользователя: {err}')
+        logger.error(f'Ошибка при получении общего канала канала: {err}')
     finally:
         session.close()
+        return channel
+
+
+async def get_category_channel(channel_username: str):
+    session = Session()
+    channel = None
+    try:
+        channel = session.query(CategoryChannel).filter(CategoryChannel.username == channel_username).one()
+    except Exception as err:
+        logger.error(f'Ошибка при получении канала из категорий: {err}')
+    finally:
+        session.close()
+        return channel
 
 
 async def get_personal_posts(user_tg_id: int):
     session = Session()
+    personal_posts = []
     try:
-        query = f'select personal_post.id, personal_channel.username, personal_post.text, personal_post.image_path, personal_post.entities from user join user_channel on user_channel.user_id = user.user_tg_id join personal_post on user_channel.channel_id = personal_post.channel_id join personal_channel on personal_channel.id = user_channel.channel_id where user.user_tg_id = {user_tg_id}'
+        query = f'select posts.*, username from user join user_channel on user_channel.user_id = user.id join personal_post posts on user_channel.channel_id = posts.personal_channel_id join personal_channel on personal_channel.id = user_channel.channel_id where user.id = {user_tg_id}'
         records = session.execute(text(query))
         personal_posts = []
         for record in records:
             personal_posts.append(record)
-        return personal_posts
     except Exception as err:
         logger.error(f'Ошибка при получении постов из пользовательских каналов: {err}')
     finally:
         session.close()
+        return personal_posts
 
 
-async def get_general_posts():
+async def get_best_not_viewed_premium_posts(user_tg_id):
     session = Session()
+    posts = []
     try:
-        posts = session.query(GeneralPost).all()
-        all_posts = []
-        for post in posts:
-            all_posts.append(post)
-            general_channel = post.general_channel_connection
-            all_posts.extend(general_channel.general_post_connection)
-        return all_posts
+        query = f'''
+                select posts.*, coefficient, username from premium_post posts
+                join premium_channel rc on rc.id = posts.premium_channel_id
+                left join user_viewed_premium_post uvrp on posts.id = uvrp.premium_post_id and uvrp.user_id = {user_tg_id}
+                where user_id is NULL
+                group by premium_channel_id
+            '''
+
+        records = session.execute(text(query))
+
+        for post in records:
+            posts.append(post)
+
     except Exception as err:
         logger.error(f'Ошибка при получении общего поста: {err}')
     finally:
         session.close()
+        return posts
+
+
+async def get_best_not_viewed_categories_posts(user_tg_id) -> list:
+    session = Session()
+    posts = []
+    try:
+        query = f'''
+            select *
+            from (
+                select posts.*,
+                       coefficient,
+                       username,
+                       uc.user_id,
+                       name,
+                       emoji,
+                       ROW_NUMBER() over (partition by category_channel_id order by likes desc ) as row_num
+                from category_post posts
+                join category_channel cc on posts.category_channel_id = cc.id
+                join category c on cc.category_id = c.id
+                join user_category uc on cc.category_id = uc.category_id and uc.user_id = 1659612474
+                left join user_viewed_category_post uvcp on posts.id = uvcp.category_post_id
+                where uvcp.user_id is null
+            ) subquery
+            where row_num = 1
+        '''
+
+        records = session.execute(text(query))
+        for post in records:
+            posts.append(post)
+    except Exception as err:
+        logger.error(f'Ошибка при получении постов из каналов в пользовательских категорий: {err}')
+    finally:
+        session.close()
+        return posts
+
+
+async def get_best_not_viewed_personal_posts(user_tg_id) -> list:
+    session = Session()
+    posts = []
+    try:
+        query = f'''
+                   select posts.*, coefficient, username from personal_post posts
+                   join personal_channel pc on posts.personal_channel_id = pc.id
+                   left join user_viewed_personal_post on user_viewed_personal_post.personal_post_id = posts.id
+                   where user_id is null
+                   order by likes desc
+                   limit 1
+               '''
+
+        records = session.execute(text(query))
+        for post in records:
+            posts.append(post)
+    except Exception as err:
+        logger.error(f'Ошибка при получении постов из каналов в пользовательских категорий: {err}')
+    finally:
+        session.close()
+        return posts
 
 
 async def get_user_last_personal_post_id(user_tg_id: int):
     session = Session()
+    last_post_id = 0
     try:
         user = session.query(User).get(user_tg_id)
-        if user:
-            last_post_id = user.last_personal_post_id
-            return last_post_id
-        else:
-            return None
+        last_post_id = user.last_personal_post_id
     except Exception as err:
         session.rollback()
         logger.error(f'Ошибка при получении последнего ID поста пользователя: {err}')
     finally:
         session.close()
-
-
-async def get_user_last_general_post_id(user_tg_id: int):
-    session = Session()
-    try:
-        user = session.query(User).get(user_tg_id)
-        if user:
-            last_post_id = user.last_general_post_id
-            return last_post_id
-        else:
-            return None
-    except Exception as err:
-        session.rollback()
-        logger.error(f'Ошибка при получении последнего ID поста пользователя: {err}')
-    finally:
-        session.close()
+        return last_post_id
 
 
 async def get_categories():
     session = Session()
+    categories = []
     try:
-        categories = session.query(Category).all()
-        return [f'{category.id}. {category.name}{category.emoji}' for category in categories]
+        records = session.query(Category).all()
+        categories = [f'{category.id}. {category.name}{category.emoji}' for category in records]
     except Exception as err:
         logger.error(f'Ошибка при получении категорий: {err}')
     finally:
         session.close()
+        return categories
 
 
 async def get_user_categories(user_tg_id: int):
     session = Session()
+    result = []
     try:
-        records = session.query(Category).select_from(User).join(UserCategory).join(Category).filter(
-            User.user_tg_id == user_tg_id)
+        records = session \
+            .query(Category) \
+            .select_from(User) \
+            .join(UserCategory).join(Category) \
+            .filter(User.id == user_tg_id)
+
         user_categories = [record for record in records]
-        return [f'<code>{i + 1}. {user_categories[i].name}{user_categories[i].emoji}</code>' for i in
-                range(0, len(user_categories))]
+        result = [f'<code>{i + 1}. {user_categories[i].name}{user_categories[i].emoji}</code>' for i in
+                  range(0, len(user_categories))]
     except Exception as err:
         logger.error(f'Ошибка при получении пользовательских категорий: {err}')
-        return []
     finally:
         session.close()
-
-
-async def get_categories_posts(user_tg_id) -> list:
-    session = Session()
-    try:
-        records = session.query(
-            GeneralPost.id, GeneralPost.image_path, GeneralPost.text, GeneralChannel.category_id, GeneralPost.entities,
-            GeneralChannel.username).select_from(User).join(UserCategory, User.user_tg_id == UserCategory.user_id). \
-            join(GeneralChannel, UserCategory.category_id == GeneralChannel.category_id). \
-            join(GeneralPost, GeneralChannel.id == GeneralPost.general_channel_id).filter(
-            User.user_tg_id == user_tg_id).all()
-        result = []
-        for record in records:
-            result.append(record)
         return result
-    except Exception as err:
-        logger.error(f'Ошибка при получении пользовательских категорий: {err}')
-        return []
-    finally:
-        session.close()
 
 
-async def get_user_last_category_post_id(user_tg_id, category_id) -> int:
+async def get_categories_channels():
     session = Session()
+    channels = []
     try:
-        result = session.query(UserCategory.last_post_id).select_from(User).join(UserCategory).filter(
-            User.user_tg_id == user_tg_id, UserCategory.category_id == category_id).first()
-        return result.last_post_id
+        records = session.query(CategoryChannel).all()
+        for channel in records:
+            channels.append(channel)
     except Exception as err:
-        logger.error(f'Ошибка при получении пользовательских категорий: {err}')
-        return 0
+        logger.error(f'Ошибка при получении всех каналов из категорий: {err}')
     finally:
         session.close()
+        return channels
+
+
+async def get_viewed_personal_post_mark_type(post_id: int):
+    session = Session()
+    mark_type = None
+    try:
+        post = session.query(UserViewedPersonalPost).filter(UserViewedPersonalPost.personal_post_id == post_id).one()
+        mark_type = post.mark_type_id
+    except Exception as err:
+        logger.error(f'Ошибка при получении реакции на персональный пост пользователя: {err}')
+    finally:
+        session.close()
+        return mark_type
+
+
+async def get_viewed_premium_post_mark_type(post_id: int):
+    session = Session()
+    mark_type = None
+    try:
+        mark_type = session.query(UserViewedPremiumPost.mark_type_id).filter(UserViewedPremiumPost.premium_post_id == post_id).one()
+    except Exception as err:
+        logger.error(f'Ошибка при получении реакции на премиальный пост пользователя: {err}')
+    finally:
+        session.close()
+        return mark_type
+
+
+async def get_viewed_category_post_mark_type(post_id: int):
+    session = Session()
+    mark_type = None
+    try:
+        mark_type = session.query(UserViewedCategoryPost.mark_type_id).filter(UserViewedCategoryPost.category_post_id == post_id).one()
+    except Exception as err:
+        logger.error(f'Ошибка при получении реакции на пост из категорий пользователя: {err}')
+    finally:
+        session.close()
+        return mark_type
+
