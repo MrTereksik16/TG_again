@@ -1,7 +1,9 @@
 from sqlalchemy import text
 from config.logging_config import logger
 from database.create_db import Session
-from database.models import User, PersonalChannel, UserChannel, PremiumChannel, CategoryChannel, UserViewedPremiumPost, Category, UserCategory, UserViewedCategoryPost, UserViewedPersonalPost
+from database.models import User, PersonalChannel, UserChannel, PremiumChannel, CategoryChannel, UserViewedPremiumPost, Category, UserCategory, \
+    UserViewedCategoryPost, UserViewedPersonalPost
+from utils.types import MarkTypes
 
 
 async def get_user(user_tg_id: int):
@@ -32,8 +34,7 @@ async def get_user_channels(user_tg_id: int):
     session = Session()
     channels = []
     try:
-        records = session.query(PersonalChannel.username).select_from(User).join(UserChannel).join(
-            PersonalChannel).filter(User.id == user_tg_id)
+        records = session.query(PersonalChannel.username).select_from(User).join(UserChannel).join(PersonalChannel).filter(User.id == user_tg_id)
         channels = []
         for record in records:
             channels.append(record.username)
@@ -74,7 +75,16 @@ async def get_personal_posts(user_tg_id: int):
     session = Session()
     personal_posts = []
     try:
-        query = f'select posts.*, username from user join user_channel on user_channel.user_id = user.id join personal_post posts on user_channel.channel_id = posts.personal_channel_id join personal_channel on personal_channel.id = user_channel.channel_id where user.id = {user_tg_id}'
+        query = f'''
+        select posts.*, username, coefficient
+        from user join user_channel on user_channel.user_id = user.id
+        join personal_post posts on user_channel.channel_id = posts.personal_channel_id and user.id = {user_tg_id}
+        join personal_channel on personal_channel.id = user_channel.channel_id
+        left join user_viewed_personal_post uvpp on posts.id = uvpp.personal_post_id
+        where uvpp.user_id is NULL
+        group by channel_id
+        '''
+
         records = session.execute(text(query))
         personal_posts = []
         for record in records:
@@ -144,43 +154,6 @@ async def get_best_not_viewed_categories_posts(user_tg_id) -> list:
         return posts
 
 
-async def get_best_not_viewed_personal_posts(user_tg_id) -> list:
-    session = Session()
-    posts = []
-    try:
-        query = f'''
-                   select posts.*, coefficient, username from personal_post posts
-                   join personal_channel pc on posts.personal_channel_id = pc.id
-                   left join user_viewed_personal_post on user_viewed_personal_post.personal_post_id = posts.id
-                   where user_id is null
-                   order by likes desc
-                   limit 1
-               '''
-
-        records = session.execute(text(query))
-        for post in records:
-            posts.append(post)
-    except Exception as err:
-        logger.error(f'Ошибка при получении постов из каналов в пользовательских категорий: {err}')
-    finally:
-        session.close()
-        return posts
-
-
-async def get_user_last_personal_post_id(user_tg_id: int):
-    session = Session()
-    last_post_id = 0
-    try:
-        user = session.query(User).get(user_tg_id)
-        last_post_id = user.last_personal_post_id
-    except Exception as err:
-        session.rollback()
-        logger.error(f'Ошибка при получении последнего ID поста пользователя: {err}')
-    finally:
-        session.close()
-        return last_post_id
-
-
 async def get_categories():
     session = Session()
     categories = []
@@ -233,7 +206,7 @@ async def get_viewed_personal_post_mark_type(post_id: int):
     mark_type = None
     try:
         post = session.query(UserViewedPersonalPost).filter(UserViewedPersonalPost.personal_post_id == post_id).one()
-        mark_type = post.mark_type_id
+        mark_type = MarkTypes(post.mark_type_id)
     except Exception as err:
         logger.error(f'Ошибка при получении реакции на персональный пост пользователя: {err}')
     finally:
@@ -245,7 +218,8 @@ async def get_viewed_premium_post_mark_type(post_id: int):
     session = Session()
     mark_type = None
     try:
-        mark_type = session.query(UserViewedPremiumPost.mark_type_id).filter(UserViewedPremiumPost.premium_post_id == post_id).one()
+        post = session.query(UserViewedPremiumPost.mark_type_id).filter(UserViewedPremiumPost.premium_post_id == post_id).one()
+        mark_type = MarkTypes(post.mark_type_id)
     except Exception as err:
         logger.error(f'Ошибка при получении реакции на премиальный пост пользователя: {err}')
     finally:
@@ -257,10 +231,10 @@ async def get_viewed_category_post_mark_type(post_id: int):
     session = Session()
     mark_type = None
     try:
-        mark_type = session.query(UserViewedCategoryPost.mark_type_id).filter(UserViewedCategoryPost.category_post_id == post_id).one()
+        post = session.query(UserViewedCategoryPost.mark_type_id).filter(UserViewedCategoryPost.category_post_id == post_id).one()
+        mark_type = MarkTypes(post.mark_type_id)
     except Exception as err:
         logger.error(f'Ошибка при получении реакции на пост из категорий пользователя: {err}')
     finally:
         session.close()
         return mark_type
-

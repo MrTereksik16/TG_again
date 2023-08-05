@@ -3,15 +3,15 @@ from aiogram.dispatcher.filters import Text
 from aiogram.types import ContentType, ParseMode, Message
 from aiogram import Dispatcher
 from config.config import ADMINS
-from pyrogram.types import ReplyKeyboardMarkup
-from database.queries.create_queries import *
-from database.queries.delete_queries import *
-from database.queries.get_queries import *
+from database.queries.create_queries import create_user_category
+from database.queries.delete_queries import delete_user_category
+from database.queries.get_queries import get_user_categories, get_categories
 from keyboards import categories_reply_keyboards, general_reply_buttons, general_reply_buttons_texts, \
     categories_reply_buttons_texts
 from store.states import CategoriesStates
-from utils.consts import answers
-from utils.helpers import convert_categories_to_string, create_categories_buttons, get_next_post, send_next_post, send_end_message
+from utils.consts import answers, errors
+from utils.helpers import convert_categories_to_string, create_categories_buttons, get_next_post, send_next_post, send_end_message, \
+    build_categories_menu
 from utils.types import Modes
 
 
@@ -40,9 +40,7 @@ async def on_add_or_delete_user_categories_message(message: Message, state: FSMC
     list_of_categories = '\n'.join(user_categories)
 
     cat_buttons = await create_categories_buttons(categories)
-    keyboard = [[cat_buttons[i], cat_buttons[i + 1]] for i in range(0, len(cat_buttons) - 1, 2)]
-    keyboard.insert(0, [general_reply_buttons.close_button])
-    keyboard = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    keyboard = build_categories_menu(cat_buttons, header_buttons=[general_reply_buttons.close_button])
 
     answer = 'Наш список категорий, но он обязательно будет обновляться:\n\n'
     answer += await convert_categories_to_string(categories)
@@ -66,7 +64,7 @@ async def on_category_message(message: Message, state: FSMContext):
 
     if message.text == general_reply_buttons_texts.CLOSE_BUTTON_TEXT:
         await state.set_state(CategoriesStates.CATEGORIES_FEED)
-        return await message.answer('<b>Лента рекомендаций</b>', reply_markup=keyboard)
+        return await message.answer('<b>Лента категорий</b>', reply_markup=keyboard)
     elif message.text not in categories:
         return await message.answer('Такой категории у нас пока нет 😅')
 

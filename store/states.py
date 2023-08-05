@@ -20,4 +20,4 @@ class AdminPanelStates(StatesGroup):
 
     GET_CATEGORY = State()
     GET_CATEGORY_CHANNELS = State()
-    GET_GENERAL_CHANNELS = State()
+    GET_PREMIUM_CHANNELS = State()

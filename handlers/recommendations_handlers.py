@@ -4,11 +4,11 @@ from aiogram.dispatcher.filters import Text
 from aiogram.types import Message
 from config.config import ADMINS
 from create_bot import bot
-from database.queries.create_queries import *
-from database.queries.get_queries import *
+from database.queries.create_queries import create_user
+from database.queries.get_queries import get_user
 from keyboards import recommendations_reply_keyboards
 from store.states import RecommendationsStates
-from utils.consts import answers
+from utils.consts import answers, errors
 from keyboards import general_reply_buttons_texts
 from utils.helpers import get_next_post, send_next_post, send_end_message
 from utils.types import Modes
