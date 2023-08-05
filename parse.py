@@ -11,12 +11,12 @@ from create_bot import bot_client
 from database.queries.get_queries import *
 import os
 
-from utils.types import Modes
+from utils.types import Modes, ParseData
 
 MEDIA_GROUP_PATH = 'media/{channel_name}/{media_group_id}'
 
 
-async def parse(message: Message, channel_username: str, mode: Modes, limit=15):
+async def parse(channel_username: str, chat_id: int, mode: Modes, limit=15) -> list[ParseData]:
     async with Client('user_session', config.API_ID, config.API_HASH, phone_number=config.PHONE_NUMBER) as user_client:
         channel_username = channel_username.replace('@', '')
         if mode == Modes.RECOMMENDATIONS:
@@ -30,17 +30,13 @@ async def parse(message: Message, channel_username: str, mode: Modes, limit=15):
             channel_id = personal_channel.id
 
         channel_username = f'@{channel_username}'
-        chat_id = message.chat.id
-
         await bot_client.send_message(chat_id, f'Получаем посты из канала {channel_username}...')
-
         data = []
         tasks = []
         messages = []
         try:
             processed_media_groups = set()
             async for message in user_client.get_chat_history(channel_username):
-                logger.error(message)
                 if message.media_group_id:
                     if message.media_group_id in processed_media_groups:
                         continue
@@ -55,8 +51,6 @@ async def parse(message: Message, channel_username: str, mode: Modes, limit=15):
                 if len(messages) == limit:
                     break
 
-            messages = list(reversed(messages))
-
             for message in messages:
                 if message.media_group_id:
                     task = asyncio.create_task(
@@ -65,30 +59,24 @@ async def parse(message: Message, channel_username: str, mode: Modes, limit=15):
                 elif message.media:
                     task = asyncio.create_task(download_media(user_client, message, channel_username.replace('@', '')))
                     tasks.append(task)
+                else:
+                    task = asyncio.create_task(download_media(user_client, message, channel_username.replace('@', '')))
+                    tasks.append(task)
 
             media_paths = await asyncio.gather(*tasks)
-
-            for message, media_path in zip(messages, media_paths):
-                entities = pickle.dumps(message.entities or message.caption_entities, protocol=None)
-                text = message.caption or message.text
+            for message, message_media_path in zip(messages, media_paths):
+                message_entities = pickle.dumps(message.entities or message.caption_entities, protocol=None)
+                message_text = message.caption or message.text
                 if message.media_group_id:
                     media_group = await message.get_media_group()
-                    text = media_group[0].caption
-                data.append({
-                    'id': message.id,
-                    'text': text,
-                    'media_path': media_path,
-                    'channel_username': channel_username,
-                    'channel_id': channel_id,
-                    'entities': entities,
-                    'chat_id': chat_id,
-                })
+                    message_text = media_group[0].caption
+                data.append(ParseData(message.id, message_text, message_media_path, channel_username, channel_id, message_entities, chat_id))
             return data
         except Exception as err:
             logger.error(f'Ошибка при парсинге сообщений канала {channel_username}: {err}')
 
 
-async def download_media(user_client, message: Message, channel_username: str):
+async def download_media(user_client, message: Message, channel_username: str) -> str | None:
     file_path = None
     if message.photo:
         file_path = f'media/{channel_username}/media_image_{message.chat.id}_{message.photo.file_unique_id}.jpg'
@@ -99,7 +87,10 @@ async def download_media(user_client, message: Message, channel_username: str):
     return file_path
 
 
-async def download_media_group(user_client, message: Message, channel_name: str) -> str:
+async def download_media_group(user_client, message: Message, channel_name: str) -> str | None:
+    if not message.media_group_id:
+        return None
+
     media_group_id = message.media_group_id
     media_group = await message.get_media_group()
     media_group_folder_path = MEDIA_GROUP_PATH.format(channel_name=channel_name, media_group_id=media_group_id)

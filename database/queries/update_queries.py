@@ -5,18 +5,6 @@ from database.models import User
 from utils.types import MarkTypes
 
 
-async def update_user_last_personal_post_id(user_tg_id, post_id):
-    session = Session()
-    try:
-        user = session.query(User).get(user_tg_id)
-        user.last_personal_post_id = post_id
-        session.commit()
-    except Exception as err:
-        logger.error(f'Ошибка при обновлении ID персонального поста пользователя: {err}')
-    finally:
-        session.close()
-
-
 async def update_viewed_personal_post_mark_type(user_tg_id: int, post_id: int, mark_type: MarkTypes):
     session = Session()
     try:

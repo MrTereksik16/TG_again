@@ -1,11 +1,13 @@
+from config.logging_config import logger
 from aiogram import Dispatcher, types
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardRemove, CallbackQuery, Message
-from utils.consts import answers
+from create_bot import bot_client
+from utils.consts import answers, errors
 from parse import parse
 from callbacks import callbacks
-from database.queries.create_queries import *
+from database.queries.create_queries import create_personal_posts
 from database.queries.delete_queries import delete_personal_channel
 from database.queries.get_queries import get_user_channels
 from keyboards import personal_inline_keyboards
@@ -25,10 +27,10 @@ async def on_personal_feed_message(message: Message, state: FSMContext):
         await message.answer('<b>Личная лента</b>')
         await on_list_channels_message(message)
     else:
-        await on_add_channels_message(message, state)
+        await on_add_personal_channels_message(message, state)
 
 
-async def on_add_channels_message(message: Message, state: FSMContext):
+async def on_add_personal_channels_message(message: Message, state: FSMContext):
     await message.answer(answers.ADD_CHANNELS_MESSAGE, reply_markup=ReplyKeyboardRemove())
     await state.set_state(PersonalStates.GET_USER_CHANNELS)
 
@@ -40,22 +42,25 @@ async def on_add_channels_inline_button_click(callback: CallbackQuery, state: FS
     await callback.answer()
 
 
-async def on_channels_message(message: Message, state: FSMContext):
-    data = await add_channels_from_message(message, Modes.PERSONAL)
-    answer = data['answer']
-    added = data['added']
+async def on_personal_channels_message(message: Message, state: FSMContext):
+    chat_id = message.chat.id
+    mode = Modes.PERSONAL
+    result = await add_channels_from_message(message, mode=mode)
 
-    keyboard = ReplyKeyboardRemove()
-    if not added:
-        keyboard = personal_reply_keyboards.personal_start_control_keyboard
+    answer = result.answer
+    to_parse = result.to_parse
+    added_channels = result.added_channels
 
-    await message.answer(answer, reply_markup=keyboard)
-
-    for channel_username in added:
-        data = await parse(message, channel_username, Modes.PERSONAL)
-        await create_personal_post(data)
+    if added_channels:
+        await message.answer(answer, reply_markup=ReplyKeyboardRemove())
+    else:
+        await message.answer(answer, reply_markup=personal_reply_keyboards.personal_start_control_keyboard)
 
     await state.set_state(PersonalStates.PERSONAL_FEED)
+
+    for channel_username in to_parse:
+        data = await parse(channel_username, chat_id, mode=mode)
+        await create_personal_posts(data, bot_client)
 
 
 async def on_list_channels_message(message: Message):
@@ -144,13 +149,13 @@ def register_personal_handlers(dp: Dispatcher):
     )
 
     dp.register_message_handler(
-        on_add_channels_message,
+        on_add_personal_channels_message,
         Text(equals=personal_reply_buttons_texts.ADD_USER_CHANNELS_BUTTON_TEXT),
         state=PersonalStates.PERSONAL_FEED
     )
 
     dp.register_message_handler(
-        on_channels_message,
+        on_personal_channels_message,
         content_types=types.ContentType.TEXT,
         state=PersonalStates.GET_USER_CHANNELS
     )

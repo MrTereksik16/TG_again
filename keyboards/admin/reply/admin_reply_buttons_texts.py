@@ -1,4 +1,4 @@
-ADD_GENERAL_CHANNELS_BUTTON_TEXT = 'Добавить каналы в рекомендации'
+ADD_GENERAL_CHANNELS_BUTTON_TEXT = 'Добавить премиальные каналы'
 ADD_CATEGORY_CHANNELS_BUTTON_TEXT = 'Добавить каналы в категории'
 ADD_GENERAL_CATEGORY_BUTTON_TEXT = 'Добавить категорию'
 DELETE_CATEGORY_CHANNELS_BUTTON_TEXT = 'Удалить каналы из категорий'

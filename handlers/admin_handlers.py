@@ -1,44 +1,44 @@
 from aiogram import Dispatcher
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
-from aiogram.types import ParseMode, ReplyKeyboardRemove, Message
+from aiogram.types import ReplyKeyboardRemove, Message
 from pyrogram.types import ReplyKeyboardMarkup
 
-from database.queries.delete_queries import delete_general_channel
+from create_bot import bot_client
 from database.queries.get_queries import get_categories
-from database.queries.create_queries import *
+from database.queries.create_queries import create_premium_posts, create_category_posts
+from utils.consts.answers import *
 from parse import parse
 from store.states import AdminPanelStates
 from utils.helpers import add_channels_from_message, create_categories_buttons
 from keyboards import admin_reply_buttons_texts, admin_reply_keyboards
-from utils.consts.answers import *
 from utils.types import Modes
 
 
-async def on_add_general_channels_message(message: Message, state: FSMContext):
-    await state.set_state(AdminPanelStates.GET_GENERAL_CHANNELS)
+async def on_add_premium_channels_message(message: Message, state: FSMContext):
+    await state.set_state(AdminPanelStates.GET_PREMIUM_CHANNELS)
     await message.answer(text=ADD_CHANNELS_MESSAGE, reply_markup=ReplyKeyboardRemove())
 
 
-async def on_general_channels_message(message: Message, state: FSMContext):
+async def on_premium_channels_message(message: Message, state: FSMContext):
+    chat_id = message.chat.id
     mode = Modes.RECOMMENDATIONS
-    data = await add_channels_from_message(message, mode=mode)
-    answer = data['answer']
-    added = data['added']
+    result = await add_channels_from_message(message, mode=mode)
 
-    if added:
-        await message.answer(answer, reply_markup=ReplyKeyboardRemove(), parse_mode=ParseMode.HTML)
+    answer = result.answer
+    to_parse = result.to_parse
+    added_channels = result.added_channels
+
+    if added_channels:
+        await message.answer(answer, reply_markup=ReplyKeyboardRemove())
     else:
-        await message.answer(answer, reply_markup=admin_reply_keyboards.admin_panel_control_keyboard,
-                             parse_mode=ParseMode.HTML)
+        await message.answer(answer, reply_markup=admin_reply_keyboards.admin_panel_control_keyboard)
 
     await state.set_state(AdminPanelStates.ADMIN_PANEL)
-    for channel_username in added:
-        data = await parse(message, channel_username, mode=mode)
 
-        result = await create_recommendation_post(data)
-        if not result:
-            await delete_general_channel(channel_username)
+    for channel_username in to_parse:
+        data = await parse(channel_username, chat_id, mode=mode)
+        await create_premium_posts(data, bot_client)
 
 
 async def on_add_category_channels_message(message: Message, state: FSMContext):
@@ -64,36 +64,37 @@ async def on_category_message(message: Message, state: FSMContext):
 
 
 async def on_category_channels_message(message: Message, state: FSMContext):
+    chat_id = message.chat.id
     mode = Modes.CATEGORIES
     context = await state.get_data()
     category = context['category']
-    data = await add_channels_from_message(message, category=category, mode=mode)
-    answer = data['answer']
-    added = data['added']
-    if added:
-        await message.answer(answer, reply_markup=ReplyKeyboardRemove(), parse_mode=ParseMode.HTML)
-    else:
-        await message.answer(answer, reply_markup=admin_reply_keyboards.admin_panel_control_keyboard,
-                             parse_mode=ParseMode.HTML)
-    await state.set_state(AdminPanelStates.ADMIN_PANEL)
-    for channel_username in added:
-        data = await parse(message, channel_username, mode=mode)
 
-        result = await create_category_post(data)
-        if not result:
-            await delete_general_channel(channel_username)
+    result = await add_channels_from_message(message, category=category, mode=mode)
+
+    answer = result.answer
+    to_parse = result.to_parse
+    added_channels = result.added_channels
+
+    if added_channels:
+        await message.answer(answer, reply_markup=ReplyKeyboardRemove())
+    else:
+        await message.answer(answer, reply_markup=admin_reply_keyboards.admin_panel_control_keyboard)
+    await state.set_state(AdminPanelStates.ADMIN_PANEL)
+    for channel_username in to_parse:
+        data = await parse(channel_username, chat_id, mode=mode)
+        await create_category_posts(data, bot_client)
 
 
 def register_admin_handlers(dp: Dispatcher):
     dp.register_message_handler(
-        on_add_general_channels_message,
+        on_add_premium_channels_message,
         Text(equals=admin_reply_buttons_texts.ADD_GENERAL_CHANNELS_BUTTON_TEXT),
         state=AdminPanelStates.ADMIN_PANEL
     )
 
     dp.register_message_handler(
-        on_general_channels_message,
-        state=AdminPanelStates.GET_GENERAL_CHANNELS
+        on_premium_channels_message,
+        state=AdminPanelStates.GET_PREMIUM_CHANNELS
     )
 
     dp.register_message_handler(

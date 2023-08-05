@@ -6,7 +6,9 @@ from config.config import ADMINS
 from callbacks import callbacks
 from create_bot import bot_client
 from database.queries.get_queries import get_viewed_category_post_mark_type, get_viewed_personal_post_mark_type, get_viewed_premium_post_mark_type
-from database.queries.update_queries import *
+from database.queries.update_queries import update_viewed_premium_post_mark_type, update_premium_post_likes, update_premium_post_dislikes, \
+    update_viewed_category_post_mark_type, update_category_post_likes, update_viewed_personal_post_mark_type, update_personal_post_likes, \
+    update_personal_post_dislikes, update_category_post_dislikes
 from keyboards import admin_reply_keyboards
 from keyboards import general_reply_buttons_texts
 from store.states import *
@@ -33,7 +35,6 @@ async def on_like_button_click(callback: CallbackQuery):
     user_tg_id = callback.from_user.id
 
     mark_type = MarkTypes.LIKE
-    print(post_type)
     if post_type == PostTypes.PREMIUM:
         mark_type = await get_viewed_premium_post_mark_type(post_id)
 
