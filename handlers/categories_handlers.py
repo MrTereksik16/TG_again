@@ -11,8 +11,12 @@ from keyboards import categories_reply_keyboards, general_reply_buttons, general
     categories_reply_buttons_texts
 from store.states import CategoriesStates
 from utils.consts import answers, errors
+<<<<<<< HEAD
 from utils.helpers import convert_categories_to_string, create_categories_buttons, get_next_post, send_next_post, send_end_message, \
     build_categories_menu
+=======
+from utils.helpers import convert_categories_to_string, create_categories_buttons, get_next_post, send_next_post, send_end_message
+>>>>>>> ae7c897 (fix extra additon of posts from the same channels)
 from utils.types import Modes
 
 
