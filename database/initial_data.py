@@ -24,11 +24,13 @@ def create_initial_data():
         except Exception as err:
             session.rollback()
             logger.error(err)
-
-    new_mark_type = MarkType(name='like')
-    session.add(new_mark_type)
-    new_mark_type = MarkType(name='dislike')
-    session.add(new_mark_type)
-    new_mark_type = MarkType(name='neutral')
-    session.add(new_mark_type)
-    session.commit()
+    try:
+        new_mark_type = MarkType(name='like')
+        session.add(new_mark_type)
+        new_mark_type = MarkType(name='dislike')
+        session.add(new_mark_type)
+        new_mark_type = MarkType(name='neutral')
+        session.add(new_mark_type)
+        session.commit()
+    except Exception as err:
+        logger.error(err)

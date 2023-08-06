@@ -95,15 +95,15 @@ async def on_delete_user_channel_message(message: Message, state: FSMContext):
 
 
 async def on_delete_user_channel_inline_click(callback: CallbackQuery, state: FSMContext):
-    username = callback.data.split(':')[1]
-    logger.error(callback.data)
+    channel_username = callback.data.split(':')[1]
     context_data = await state.get_data()
+    user_tg_id = callback.from_user.id
     usernames = context_data.get('user_channels_usernames')
-    result = await delete_personal_channel(username)
+    result = await delete_personal_channel(user_tg_id, channel_username)
     msg = context_data.get('delete_user_channels_message')
 
     if result:
-        usernames.remove(username)
+        usernames.remove(channel_username)
         await state.update_data(user_channels_usernames=usernames)
         edited_keyboard = InlineKeyboardMarkup()
 

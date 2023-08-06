@@ -212,5 +212,5 @@ class UserViewedPersonalPost(Base):
         return f'<UserViewedCategoryPost(user_id={self.user_id}, premium_post_id={self.premium_post_id}, mark_type_id={self.mark_type_id}>'
 
 # Пересоздаёт бд
-Base.metadata.drop_all(engine, checkfirst=True)
-Base.metadata.create_all(engine)
+# Base.metadata.drop_all(engine, checkfirst=True)
+# Base.metadata.create_all(engine)

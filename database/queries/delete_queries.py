@@ -4,15 +4,11 @@ from database.create_db import Session
 from database.models import PersonalChannel, UserChannel, UserCategory, PersonalPost, PremiumChannel
 
 
-async def delete_personal_channel(username):
+async def delete_personal_channel(user_tg_id, channel_username):
     session = Session()
     try:
-        personal_channel_id = session.execute(select(PersonalChannel.id).where(PersonalChannel.username == username)).fetchone()[0]
-        session.query(PersonalPost).filter(PersonalPost.personal_channel_id == personal_channel_id).delete()
-        session.flush()
-        session.query(UserChannel).filter(UserChannel.channel_id == personal_channel_id).delete()
-        session.flush()
-        session.query(PersonalChannel).filter(PersonalChannel.id == personal_channel_id).delete()
+        personal_channel = session.query(PersonalChannel).filter(PersonalChannel.username == channel_username).one()
+        session.query(UserChannel).filter(UserChannel.user_id == user_tg_id, UserChannel.channel_id == personal_channel.id).delete()
         session.commit()
         return True
     except Exception as err:
