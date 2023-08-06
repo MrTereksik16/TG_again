@@ -137,9 +137,42 @@ async def get_best_not_viewed_categories_posts(user_tg_id) -> list:
                 from category_post posts
                 join category_channel cc on posts.category_channel_id = cc.id
                 join category c on cc.category_id = c.id
-                join user_category uc on cc.category_id = uc.category_id and uc.user_id = 1659612474
+                join user_category uc on cc.category_id = uc.category_id and uc.user_id = {user_tg_id}
                 left join user_viewed_category_post uvcp on posts.id = uvcp.category_post_id
                 where uvcp.user_id is null
+            ) subquery
+            where row_num = 1
+        '''
+
+        records = session.execute(text(query))
+        for post in records:
+            posts.append(post)
+    except Exception as err:
+        logger.error(f'Ошибка при получении постов из каналов в пользовательских категорий: {err}')
+    finally:
+        session.close()
+        return posts
+
+
+async def get_best_categories_posts(user_tg_id) -> list:
+    session = Session()
+    posts = []
+    try:
+        query = f'''
+            select *
+            from (
+                select posts.*,
+                       coefficient,
+                       username,
+                       uc.user_id,
+                       name,
+                       emoji,
+                       ROW_NUMBER() over (partition by category_channel_id order by likes desc ) as row_num
+                from category_post posts
+                join category_channel cc on posts.category_channel_id = cc.id
+                join category c on cc.category_id = c.id
+                join user_category uc on cc.category_id = uc.category_id and uc.user_id = {user_tg_id}
+                left join user_viewed_category_post uvcp on posts.id = uvcp.category_post_id
             ) subquery
             where row_num = 1
         '''

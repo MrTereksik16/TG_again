@@ -45,10 +45,8 @@ async def send_next_post(user_tg_id: int, chat_id: int, mode: Modes, post=None):
 
     if mode == Modes.RECOMMENDATIONS:
         if hasattr(post, 'premium_channel_id'):
-            await create_user_viewed_premium_post(user_tg_id, post.id)
             keyboard = create_reactions_keyboard(likes, dislikes, PostTypes.PREMIUM, post.id)
         elif hasattr(post, 'category_channel_id'):
-            await create_user_viewed_category_post(user_tg_id, post.id)
             keyboard = create_reactions_keyboard(likes, dislikes, PostTypes.CATEGORY, post.id)
 
     elif mode == Modes.CATEGORIES:
@@ -120,7 +118,7 @@ async def get_next_post(user_tg_id: int, mode: Modes):
     elif mode == Modes.RECOMMENDATIONS:
         posts = []
         premium_best_posts = await get_best_not_viewed_premium_posts(user_tg_id)
-        categories_best_posts = await get_best_not_viewed_categories_posts(user_tg_id)
+        categories_best_posts = await get_best_categories_posts(user_tg_id)
 
         for post in premium_best_posts:
             posts.append(post)
