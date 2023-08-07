@@ -11,7 +11,7 @@ from create_bot import bot_client
 from database.queries.get_queries import *
 import os
 
-from utils.types import Modes, ParseData
+from utils.custom_types import Modes, ParseData
 
 MEDIA_GROUP_PATH = 'media/{channel_name}/{media_group_id}'
 

@@ -10,11 +10,11 @@ class User(Base):
 
     id = Column(BIGINT(unsigned=True), primary_key=True, autoincrement=False)
 
-    user_channel_connection = relationship('UserChannel', back_populates='user_connection')
-    user_category_connection = relationship('UserCategory', back_populates='user_connection')
-    user_viewed_premium_post_connection = relationship('UserViewedPremiumPost', back_populates='user_connection')
-    user_viewed_category_post_connection = relationship('UserViewedCategoryPost', back_populates='user_connection')
-    user_viewed_personal_post_connection = relationship('UserViewedPersonalPost', back_populates='user_connection')
+    user_channel_connection = relationship('UserChannel', cascade="all, delete", back_populates='user_connection')
+    user_category_connection = relationship('UserCategory', cascade="all, delete", back_populates='user_connection')
+    user_viewed_premium_post_connection = relationship('UserViewedPremiumPost', cascade="all, delete", back_populates='user_connection')
+    user_viewed_category_post_connection = relationship('UserViewedCategoryPost', cascade="all, delete", back_populates='user_connection')
+    user_viewed_personal_post_connection = relationship('UserViewedPersonalPost', cascade="all, delete", back_populates='user_connection')
 
     def __repr__(self):
         return f'<User(id={self.id}, last_post_id={self.last_post_id})>'
@@ -23,8 +23,8 @@ class User(Base):
 class UserChannel(Base):
     __tablename__ = 'user_channel'
 
-    user_id = Column(BIGINT(unsigned=True), ForeignKey('user.id'), primary_key=True)
-    channel_id = Column(BIGINT(unsigned=True), ForeignKey('personal_channel.id'), primary_key=True)
+    user_id = Column(BIGINT(unsigned=True), ForeignKey('user.id', ondelete='CASCADE'), primary_key=True)
+    channel_id = Column(BIGINT(unsigned=True), ForeignKey('personal_channel.id', ondelete='CASCADE'), primary_key=True)
 
     user_connection = relationship('User', back_populates='user_channel_connection')
     personal_channel_connection = relationship('PersonalChannel', back_populates='user_channel_connection')
@@ -40,8 +40,8 @@ class PersonalChannel(Base):
     username = Column(String(100), unique=True, nullable=False)
     coefficient = Column(SMALLINT(unsigned=True), default=1)
 
-    user_channel_connection = relationship('UserChannel', back_populates='personal_channel_connection')
-    personal_post_connection = relationship('PersonalPost', back_populates='personal_channel_connection')
+    user_channel_connection = relationship('UserChannel', cascade="all, delete", back_populates='personal_channel_connection')
+    personal_post_connection = relationship('PersonalPost', cascade="all, delete", back_populates='personal_channel_connection')
 
     def __repr__(self):
         return f'<PersonalChannel(id={self.id}, tg_id={self.tg_id} username={self.username})>'
@@ -54,12 +54,12 @@ class PersonalPost(Base):
     text = Column(Text)
     image_path = Column(Text)
     entities = Column(BLOB)
-    personal_channel_id = Column(BIGINT(unsigned=True), ForeignKey('personal_channel.id'))
+    personal_channel_id = Column(BIGINT(unsigned=True), ForeignKey('personal_channel.id', ondelete='CASCADE'))
     likes = Column(INTEGER(unsigned=True), default=0)
     dislikes = Column(INTEGER(unsigned=True), default=0)
 
     personal_channel_connection = relationship('PersonalChannel', back_populates='personal_post_connection')
-    user_viewed_personal_post_connection = relationship('UserViewedPersonalPost', back_populates='personal_post_connection')
+    user_viewed_personal_post_connection = relationship('UserViewedPersonalPost', cascade="all, delete", back_populates='personal_post_connection')
 
     def __repr__(self):
         return f'<PersonalPost(id={self.id}, text={self.text}, image_path={self.image_path}, entities={self.entities}, likes={self.likes}, dislikes={self.dislikes})>'
@@ -68,8 +68,8 @@ class PersonalPost(Base):
 class UserCategory(Base):
     __tablename__ = 'user_category'
 
-    user_id = Column(BIGINT(unsigned=True), ForeignKey('user.id'), primary_key=True)
-    category_id = Column(TINYINT(unsigned=True), ForeignKey('category.id'), primary_key=True)
+    user_id = Column(BIGINT(unsigned=True), ForeignKey('user.id', ondelete='CASCADE'), primary_key=True)
+    category_id = Column(TINYINT(unsigned=True), ForeignKey('category.id', ondelete='CASCADE'), primary_key=True)
 
     user_connection = relationship('User', back_populates='user_category_connection')
     category_connection = relationship('Category', back_populates='user_category_connection')
@@ -82,8 +82,8 @@ class Category(Base):
     name = Column(String(30), unique=True, nullable=False)
     emoji = Column(String(10), nullable=False)
 
-    user_category_connection = relationship('UserCategory', back_populates='category_connection')
-    category_channel_connection = relationship('CategoryChannel', back_populates='category_connection')
+    user_category_connection = relationship('UserCategory', cascade='all, delete', back_populates='category_connection')
+    category_channel_connection = relationship('CategoryChannel', cascade="all, delete", back_populates='category_connection')
 
     def __repr__(self):
         return f'<Category(id={self.id}, name={self.name}, emoji={self.emoji})>'
@@ -96,10 +96,10 @@ class PremiumChannel(Base):
     username = Column(String(32), unique=True, nullable=False)
     coefficient = Column(TINYINT(unsigned=True), default=2)
 
-    premium_post_connection = relationship('PremiumPost', back_populates='premium_channel_connection')
+    premium_post_connection = relationship('PremiumPost', cascade="all, delete", back_populates='premium_channel_connection')
 
     def __repr__(self):
-        return f'<PremiumChannel(id={self.id}, username={self.username}, tg_id={self.tg_id})>'
+        return f'<PremiumChannel(id={self.id}, username={self.username} coefficient={self.coefficient})>'
 
 
 class PremiumPost(Base):
@@ -111,10 +111,10 @@ class PremiumPost(Base):
     entities = Column(BLOB)
     likes = Column(Integer)
     dislikes = Column(Integer)
-    premium_channel_id = Column(BIGINT(unsigned=True), ForeignKey('premium_channel.id'))
+    premium_channel_id = Column(BIGINT(unsigned=True), ForeignKey('premium_channel.id', ondelete='CASCADE'))
 
     premium_channel_connection = relationship('PremiumChannel', back_populates='premium_post_connection')
-    user_viewed_premium_post_connection = relationship('UserViewedPremiumPost', back_populates='premium_post_connection')
+    user_viewed_premium_post_connection = relationship('UserViewedPremiumPost', cascade="all, delete", back_populates='premium_post_connection')
 
     def __repr__(self):
         return f'<PremiumPost(id={self.id}, text={self.text}, image_path={self.image_path}, likes={self.likes},dislikes={self.dislikes})>'
@@ -125,11 +125,11 @@ class CategoryChannel(Base):
 
     id = Column(BIGINT(unsigned=True), primary_key=True, autoincrement=False)
     username = Column(String(32), unique=True, nullable=False)
-    category_id = Column(TINYINT(unsigned=True), ForeignKey('category.id'), nullable=False)
+    category_id = Column(TINYINT(unsigned=True), ForeignKey('category.id', ondelete='CASCADE'), nullable=False)
     coefficient = Column(TINYINT(unsigned=True), default=1)
 
     category_connection = relationship('Category', back_populates='category_channel_connection')
-    category_post_connection = relationship('CategoryPost', back_populates='category_channel_connection')
+    category_post_connection = relationship('CategoryPost', cascade="all, delete", back_populates='category_channel_connection')
 
     def __repr__(self):
         return f'<CategoryChannel(id={self.id}, tg_id={self.tg_id}, username={self.username}, category_id={self.category_id})>'
@@ -144,10 +144,10 @@ class CategoryPost(Base):
     entities = Column(BLOB)
     likes = Column(Integer)
     dislikes = Column(Integer)
-    category_channel_id = Column(BIGINT(unsigned=True), ForeignKey('category_channel.id'))
+    category_channel_id = Column(BIGINT(unsigned=True), ForeignKey('category_channel.id', ondelete='CASCADE'))
 
     category_channel_connection = relationship('CategoryChannel', back_populates='category_post_connection')
-    user_viewed_category_post_connection = relationship('UserViewedCategoryPost', back_populates='category_post_connection')
+    user_viewed_category_post_connection = relationship('UserViewedCategoryPost', cascade="all, delete", back_populates='category_post_connection')
 
     def __repr__(self):
         return f'<CategoryPost(id={self.id}, text={self.text}, image_path={self.image_path}, likes={self.likes}, dislikes={self.dislikes}, category_channel_id={self.category_channel_id})>'
@@ -159,9 +159,9 @@ class MarkType(Base):
     id = Column(TINYINT(unsigned=True), primary_key=True, autoincrement=True)
     name = Column(String(10), unique=True)
 
-    user_viewed_premium_post_connection = relationship('UserViewedPremiumPost', back_populates='mark_type_connection')
-    user_viewed_category_post_connection = relationship('UserViewedCategoryPost', back_populates='mark_type_connection')
-    user_viewed_personal_post_connection = relationship('UserViewedPersonalPost', back_populates='mark_type_connection')
+    user_viewed_premium_post_connection = relationship('UserViewedPremiumPost', cascade="all, delete", back_populates='mark_type_connection')
+    user_viewed_category_post_connection = relationship('UserViewedCategoryPost', cascade="all, delete", back_populates='mark_type_connection')
+    user_viewed_personal_post_connection = relationship('UserViewedPersonalPost', cascade="all, delete", back_populates='mark_type_connection')
 
     def __repr__(self):
         return f'<MarkType(id={self.id}, name={self.name})>'
@@ -170,9 +170,9 @@ class MarkType(Base):
 class UserViewedPremiumPost(Base):
     __tablename__ = 'user_viewed_premium_post'
 
-    user_id = Column(BIGINT(unsigned=True), ForeignKey('user.id'), primary_key=True)
-    premium_post_id = Column(BIGINT(unsigned=True), ForeignKey('premium_post.id'), primary_key=True)
-    mark_type_id = Column(TINYINT(unsigned=True), ForeignKey('mark_type.id'), default=3)
+    user_id = Column(BIGINT(unsigned=True), ForeignKey('user.id', ondelete='CASCADE'), primary_key=True)
+    premium_post_id = Column(BIGINT(unsigned=True), ForeignKey('premium_post.id', ondelete='CASCADE'), primary_key=True)
+    mark_type_id = Column(TINYINT(unsigned=True), ForeignKey('mark_type.id', ondelete='CASCADE'), default=3)
 
     user_connection = relationship('User', back_populates='user_viewed_premium_post_connection')
     premium_post_connection = relationship('PremiumPost', back_populates='user_viewed_premium_post_connection')
@@ -185,9 +185,9 @@ class UserViewedPremiumPost(Base):
 class UserViewedCategoryPost(Base):
     __tablename__ = 'user_viewed_category_post'
 
-    user_id = Column(BIGINT(unsigned=True), ForeignKey('user.id'), primary_key=True)
-    category_post_id = Column(BIGINT(unsigned=True), ForeignKey('category_post.id'), primary_key=True)
-    mark_type_id = Column(TINYINT(unsigned=True), ForeignKey('mark_type.id'), default=3)
+    user_id = Column(BIGINT(unsigned=True), ForeignKey('user.id', ondelete='CASCADE'), primary_key=True)
+    category_post_id = Column(BIGINT(unsigned=True), ForeignKey('category_post.id', ondelete='CASCADE'), primary_key=True)
+    mark_type_id = Column(TINYINT(unsigned=True), ForeignKey('mark_type.id', ondelete='CASCADE'), default=3)
 
     user_connection = relationship('User', back_populates='user_viewed_category_post_connection')
     category_post_connection = relationship('CategoryPost', back_populates='user_viewed_category_post_connection')
@@ -200,9 +200,9 @@ class UserViewedCategoryPost(Base):
 class UserViewedPersonalPost(Base):
     __tablename__ = 'user_viewed_personal_post'
 
-    user_id = Column(BIGINT(unsigned=True), ForeignKey('user.id'), primary_key=True)
-    personal_post_id = Column(BIGINT(unsigned=True), ForeignKey('personal_post.id'), primary_key=True)
-    mark_type_id = Column(TINYINT(unsigned=True), ForeignKey('mark_type.id'), default=3)
+    user_id = Column(BIGINT(unsigned=True), ForeignKey('user.id', ondelete='CASCADE'), primary_key=True)
+    personal_post_id = Column(BIGINT(unsigned=True), ForeignKey('personal_post.id', ondelete='CASCADE'), primary_key=True)
+    mark_type_id = Column(TINYINT(unsigned=True), ForeignKey('mark_type.id', ondelete='CASCADE'), default=3)
 
     user_connection = relationship('User', back_populates='user_viewed_personal_post_connection')
     personal_post_connection = relationship('PersonalPost', back_populates='user_viewed_personal_post_connection')

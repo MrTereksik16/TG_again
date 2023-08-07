@@ -24,6 +24,8 @@ def create_initial_data():
         except Exception as err:
             session.rollback()
             logger.error(err)
+    session.commit()
+    session = Session()
     try:
         new_mark_type = MarkType(name='like')
         session.add(new_mark_type)

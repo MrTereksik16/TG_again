@@ -1,6 +1,5 @@
 from pyrogram.types import MessageEntity
 
-
 class Modes:
     RECOMMENDATIONS = 'recommendations'
     PERSONAL = 'personal'
@@ -38,16 +37,10 @@ class MarkTypes:
 class AddChannelsResult:
     answer = None
     to_parse = None
-    added_channels = None
-    already_added = None
-    not_added_channels = None
 
-    def __init__(self, answer: str, to_parse: list, added_channels: list, already_added: list, not_added_channels: list):
+    def __init__(self, answer: str, to_parse: list):
         self.answer = answer
         self.to_parse = to_parse
-        self.added_channels = added_channels
-        self.already_added = already_added
-        self.not_added_channels = not_added_channels
 
 
 class ParseData:
@@ -76,3 +69,4 @@ class ParseData:
         self.message_entities = message_entities
         self.channel_id = channel_id
         self.channel_username = channel_username
+

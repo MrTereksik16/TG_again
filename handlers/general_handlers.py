@@ -3,7 +3,7 @@ from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
 from aiogram.types import Message, CallbackQuery
 from config.config import ADMINS
-from callbacks import callbacks
+import callbacks
 from create_bot import bot_client
 from database.queries.get_queries import get_viewed_category_post_mark_type, get_viewed_personal_post_mark_type, get_viewed_premium_post_mark_type
 from database.queries.update_queries import update_viewed_premium_post_mark_type, update_premium_post_likes, update_premium_post_dislikes, \
@@ -13,7 +13,7 @@ from keyboards import admin_reply_keyboards
 from keyboards import general_reply_buttons_texts
 from store.states import *
 from utils.helpers import create_reactions_keyboard
-from utils.types import PostTypes, MarkTypes
+from utils.custom_types import PostTypes, MarkTypes
 
 
 async def on_admin_panel_message(message: Message, state: FSMContext):

@@ -3,10 +3,10 @@ from config.logging_config import logger
 from database.create_db import Session
 from database.models import User, PersonalChannel, UserChannel, PremiumChannel, CategoryChannel, UserViewedPremiumPost, Category, UserCategory, \
     UserViewedCategoryPost, UserViewedPersonalPost
-from utils.types import MarkTypes
+from utils.custom_types import MarkTypes
 
 
-async def get_user(user_tg_id: int):
+async def get_user(user_tg_id: int) -> User:
     session = Session()
     user = None
     try:
@@ -18,7 +18,7 @@ async def get_user(user_tg_id: int):
         return user
 
 
-async def get_personal_channel(channel_username: str):
+async def get_personal_channel(channel_username: str) -> PersonalChannel:
     session = Session()
     channel = None
     try:
@@ -30,14 +30,14 @@ async def get_personal_channel(channel_username: str):
         return channel
 
 
-async def get_user_channels(user_tg_id: int):
+async def get_user_channels_usernames(user_tg_id: int) -> list[str]:
     session = Session()
     channels = []
     try:
-        records = session.query(PersonalChannel.username).select_from(User).join(UserChannel).join(PersonalChannel).filter(User.id == user_tg_id)
+        records = session.query(PersonalChannel).select_from(User).join(UserChannel).join(PersonalChannel).filter(User.id == user_tg_id)
         channels = []
-        for record in records:
-            channels.append(record.username)
+        for channel in records:
+            channels.append(channel.username)
 
     except Exception as err:
         logger.error(f'Ошибка при получении списка каналов пользователя: {err}')
@@ -46,7 +46,7 @@ async def get_user_channels(user_tg_id: int):
         return channels
 
 
-async def get_premium_channel(channel_username: str):
+async def get_premium_channel(channel_username: str) -> PremiumChannel:
     session = Session()
     channel = None
     try:
@@ -59,7 +59,7 @@ async def get_premium_channel(channel_username: str):
         return channel
 
 
-async def get_category_channel(channel_username: str):
+async def get_category_channel(channel_username: str) -> CategoryChannel:
     session = Session()
     channel = None
     try:
@@ -71,16 +71,16 @@ async def get_category_channel(channel_username: str):
         return channel
 
 
-async def get_personal_posts(user_tg_id: int):
+async def get_personal_posts(user_tg_id: int) -> list:
     session = Session()
     personal_posts = []
     try:
         query = f'''
         select posts.*, username, coefficient
         from user join user_channel on user_channel.user_id = user.id
-        join personal_post posts on user_channel.channel_id = posts.personal_channel_id and user.id = {user_tg_id}
+        join personal_post posts on user_channel.channel_id = posts.personal_channel_id
         join personal_channel on personal_channel.id = user_channel.channel_id
-        left join user_viewed_personal_post uvpp on posts.id = uvpp.personal_post_id
+        left join user_viewed_personal_post uvpp on posts.id = uvpp.personal_post_id and uvpp.user_id = {user_tg_id}
         where uvpp.user_id is NULL
         group by channel_id
         '''
@@ -96,7 +96,7 @@ async def get_personal_posts(user_tg_id: int):
         return personal_posts
 
 
-async def get_best_not_viewed_premium_posts(user_tg_id):
+async def get_best_not_viewed_premium_posts(user_tg_id) -> list:
     session = Session()
     posts = []
     try:
@@ -130,7 +130,6 @@ async def get_best_not_viewed_categories_posts(user_tg_id) -> list:
                 select posts.*,
                        coefficient,
                        username,
-                       uc.user_id,
                        name,
                        emoji,
                        ROW_NUMBER() over (partition by category_channel_id order by likes desc ) as row_num
@@ -138,7 +137,7 @@ async def get_best_not_viewed_categories_posts(user_tg_id) -> list:
                 join category_channel cc on posts.category_channel_id = cc.id
                 join category c on cc.category_id = c.id
                 join user_category uc on cc.category_id = uc.category_id and uc.user_id = {user_tg_id}
-                left join user_viewed_category_post uvcp on posts.id = uvcp.category_post_id
+                left join user_viewed_category_post uvcp on posts.id = uvcp.category_post_id and uvcp.user_id = {user_tg_id}
                 where uvcp.user_id is null
             ) subquery
             where row_num = 1
@@ -164,7 +163,6 @@ async def get_best_categories_posts(user_tg_id) -> list:
                 select posts.*,
                        coefficient,
                        username,
-                       uc.user_id,
                        name,
                        emoji,
                        ROW_NUMBER() over (partition by category_channel_id order by likes desc ) as row_num
@@ -187,12 +185,13 @@ async def get_best_categories_posts(user_tg_id) -> list:
         return posts
 
 
-async def get_categories():
+async def get_categories() -> list[str]:
     session = Session()
     categories = []
     try:
         records = session.query(Category).all()
-        categories = [f'{category.id}. {category.name}{category.emoji}' for category in records]
+        for category in records:
+            categories.append(f'{category.name}{category.emoji}')
     except Exception as err:
         logger.error(f'Ошибка при получении категорий: {err}')
     finally:
@@ -200,7 +199,7 @@ async def get_categories():
         return categories
 
 
-async def get_user_categories(user_tg_id: int):
+async def get_user_categories(user_tg_id: int) -> list[str]:
     session = Session()
     result = []
     try:
@@ -211,8 +210,8 @@ async def get_user_categories(user_tg_id: int):
             .filter(User.id == user_tg_id)
 
         user_categories = [record for record in records]
-        result = [f'<code>{i + 1}. {user_categories[i].name}{user_categories[i].emoji}</code>' for i in
-                  range(0, len(user_categories))]
+        for category in user_categories:
+            result.append(f'{category.name}{category.emoji}')
     except Exception as err:
         logger.error(f'Ошибка при получении пользовательских категорий: {err}')
     finally:
@@ -220,21 +219,7 @@ async def get_user_categories(user_tg_id: int):
         return result
 
 
-async def get_categories_channels():
-    session = Session()
-    channels = []
-    try:
-        records = session.query(CategoryChannel).all()
-        for channel in records:
-            channels.append(channel)
-    except Exception as err:
-        logger.error(f'Ошибка при получении всех каналов из категорий: {err}')
-    finally:
-        session.close()
-        return channels
-
-
-async def get_viewed_personal_post_mark_type(post_id: int):
+async def get_viewed_personal_post_mark_type(post_id: int) -> MarkTypes | None:
     session = Session()
     mark_type = None
     try:
@@ -247,7 +232,7 @@ async def get_viewed_personal_post_mark_type(post_id: int):
         return mark_type
 
 
-async def get_viewed_premium_post_mark_type(post_id: int):
+async def get_viewed_premium_post_mark_type(post_id: int) -> MarkTypes | None:
     session = Session()
     mark_type = None
     try:
@@ -260,7 +245,7 @@ async def get_viewed_premium_post_mark_type(post_id: int):
         return mark_type
 
 
-async def get_viewed_category_post_mark_type(post_id: int):
+async def get_viewed_category_post_mark_type(post_id: int) -> MarkTypes | None:
     session = Session()
     mark_type = None
     try:
@@ -271,3 +256,44 @@ async def get_viewed_category_post_mark_type(post_id: int):
     finally:
         session.close()
         return mark_type
+
+
+async def get_premium_channels() -> list[PremiumChannel]:
+    session = Session()
+    channels = []
+    try:
+        records = session.query(PremiumChannel).all()
+        for channel in records:
+            channels.append(channel)
+    except Exception as err:
+        logger.error(f'Ошибка при получении реакции на пост из категорий пользователя: {err}')
+    finally:
+        session.close()
+        return channels
+
+
+async def get_categories_channels() -> list:
+    session = Session()
+    categories_channels = []
+    try:
+        records = session.query(CategoryChannel.username, Category.emoji, Category.name).join(Category, CategoryChannel.category_id == Category.id)
+        for channel in records:
+            categories_channels.append(channel)
+    except Exception as err:
+        logger.error(f'Ошибка при получении категорий: {err}')
+    finally:
+        session.close()
+        return categories_channels
+
+
+async def get_category_id(category_name) -> int | None:
+    session = Session()
+    category_id = None
+    try:
+        category = session.query(Category).filter(Category.name == category_name).one()
+        category_id = category.id
+    except Exception as err:
+        logger.error(f'Ошибка при получении реакции на пост из категорий пользователя: {err}')
+    finally:
+        session.close()
+        return category_id

@@ -4,9 +4,9 @@ from utils.consts import errors
 from config.logging_config import logger
 from database.models import UserChannel, User, PersonalPost, PersonalChannel, UserCategory, \
     PremiumPost, CategoryChannel, PremiumChannel, CategoryPost, UserViewedPremiumPost, \
-    UserViewedCategoryPost, UserViewedPersonalPost
+    UserViewedCategoryPost, UserViewedPersonalPost, Category
 from keyboards import personal_reply_keyboards, admin_reply_keyboards
-from utils.types import ParseData
+from utils.custom_types import ParseData
 
 
 async def create_user(user_tg_id: int) -> bool:
@@ -150,6 +150,22 @@ async def create_category_posts(data: list[ParseData], bot_client: Client) -> bo
     except Exception as err:
         await bot_client.send_message(chat_id, f'Не удалось получить посты с канала {channel_username}', reply_markup=keyboard)
         logger.error(f'Ошибка при добавлении общего поста: {err}')
+        return False
+    finally:
+        session.close()
+
+
+async def create_category(category_name: str, category_emoji: str) -> bool | str:
+    session = Session()
+    try:
+        new_category = Category(name=category_name, emoji=category_emoji)
+        session.add(new_category)
+        session.commit()
+        return True
+    except Exception as err:
+        logger.error(f'Ошибка при добавлении общего поста: {err}')
+        if 'Duplicate entry' in str(err):
+            return errors.DUPLICATE_ENTRY_ERROR
         return False
     finally:
         session.close()

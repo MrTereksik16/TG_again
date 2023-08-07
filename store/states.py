@@ -18,6 +18,12 @@ class RecommendationsStates(StatesGroup):
 class AdminPanelStates(StatesGroup):
     ADMIN_PANEL = State()
 
-    GET_CATEGORY = State()
+    GET_CHANNELS_CATEGORY = State()
+    GET_CATEGORY_NAME = State()
+    GET_CATEGORY_EMOJI = State()
     GET_CATEGORY_CHANNELS = State()
+
+    DELETE_CATEGORIES = State()
+
     GET_PREMIUM_CHANNELS = State()
+

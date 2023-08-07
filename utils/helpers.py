@@ -2,24 +2,28 @@ import os
 import pickle
 import random
 from re import match, sub
+from aiogram.dispatcher import FSMContext
+from aiogram.dispatcher.filters.state import State
 from aiogram.types import Message
 from pyrogram.types import KeyboardButton, InputMediaPhoto, InputMediaVideo, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 from pyrogram.enums import ChatAction
 from config.config import ADMINS
 from create_bot import bot_client
 from database.queries.create_queries import *
-from config.logging_config import logger
 from database.queries.get_queries import *
 from utils.consts import answers, errors
 from keyboards import personal_reply_keyboards, recommendations_reply_keyboards, categories_reply_keyboards, \
     general_inline_buttons_texts
-from callbacks import callbacks
-from utils.types import Modes, PostTypes, AddChannelsResult
+import callbacks
+from utils.custom_types import Modes, PostTypes, AddChannelsResult
 from pyrogram.types import ReplyKeyboardRemove
 
 
-async def convert_categories_to_string(categories) -> str:
-    return ''.join([f'<code>{categories[i]}\n</code>' for i in range(0, len(categories))])
+def convert_list_of_items_to_string(items: list, code: bool = True) -> str:
+    if code:
+        return '\n' + ''.join([f'{i}.  <code>{value}\n</code>' for i, value in enumerate(items, start=1)])
+    else:
+        return '\n' + ''.join([f'{i}.  {value}\n' for i, value in enumerate(items, start=1)])
 
 
 async def send_next_post(user_tg_id: int, chat_id: int, mode: Modes, post=None):
@@ -35,7 +39,7 @@ async def send_next_post(user_tg_id: int, chat_id: int, mode: Modes, post=None):
     likes = post.likes
     dislikes = post.dislikes
 
-    message_text = f"{text}\n{answers.POST_FROM_CHANNEL_MESSAGE.format(channel_username=channel_username)}"
+    message_text = f'{text}\n{answers.POST_FROM_CHANNEL_MESSAGE.format(channel_username=channel_username)}'
 
     if mode == Modes.CATEGORIES:
         category = post.name + post.emoji
@@ -146,7 +150,7 @@ def choose_post(posts: list):
     return posts[0]
 
 
-async def add_channels_from_message(message: Message, mode: Modes, category='', ) -> AddChannelsResult:
+async def add_channels_from_message(message: Message, mode: Modes, category_name='', ) -> AddChannelsResult:
     links = [link.strip() for link in message.text.split(',') if link.strip()]
     user_tg_id = message.from_user.id
     to_parse = []
@@ -156,7 +160,7 @@ async def add_channels_from_message(message: Message, mode: Modes, category='', 
     for link in links:
         try:
             if not match(r'^@[a-zA-Z0-9_]+', link):
-                link = sub(r"https://t.me/(\w+)", r"\1", link)
+                link = sub(r'https://t.me/(\w+)', r'\1', link)
             channel_entity = await bot_client.get_chat(link)
         except Exception as err:
             logger.error(f'Ошибка при получении сущности чата: {err}')
@@ -173,7 +177,7 @@ async def add_channels_from_message(message: Message, mode: Modes, category='', 
             if result:
                 to_parse.append(channel_username)
         elif mode == Modes.CATEGORIES:
-            category_id = int(category.split('.')[0])
+            category_id = await get_category_id(category_name)
             result = await create_category_channel(channel_tg_id, channel_username, category_id)
 
             if result:
@@ -196,7 +200,7 @@ async def add_channels_from_message(message: Message, mode: Modes, category='', 
     answer = ''
 
     if mode == Modes.CATEGORIES and added:
-        answer += answers.CHANNELS_ADDED_WITH_CATEGORY_MESSAGE.format(category=category.split(". ", 1)[1]) + ', '.join(added)
+        answer += answers.CHANNELS_ADDED_WITH_CATEGORY_MESSAGE.format(category=category_name) + ', '.join(added)
     elif (mode == Modes.PERSONAL or mode == Modes.RECOMMENDATIONS) and added:
         answer += answers.CHANNELS_ADDED_MESSAGE + ', '.join(added)
 
@@ -205,17 +209,17 @@ async def add_channels_from_message(message: Message, mode: Modes, category='', 
     if already_added:
         answer += answers.CHANNELS_ALREADY_ADDED_MESSAGE + ', '.join(already_added)
 
-    return AddChannelsResult(answer, to_parse, added, already_added, not_added)
+    return AddChannelsResult(answer, to_parse)
 
 
-async def create_categories_buttons(categories):
+def create_categories_buttons(categories):
     categories_buttons = []
     for category in categories:
         categories_buttons.append(KeyboardButton(text=category))
     return categories_buttons
 
 
-def build_categories_menu(buttons, n_cols: int = 2, header_buttons: list = None, footer_buttons: list = None) -> ReplyKeyboardMarkup:
+def build_menu(buttons: list[KeyboardButton], n_cols: int = 2, header_buttons: list = None, footer_buttons: list = None) -> ReplyKeyboardMarkup:
     menu = [buttons[i:i + n_cols] for i in range(0, len(buttons), n_cols)]
     if header_buttons:
         menu.insert(0, header_buttons)
@@ -225,16 +229,20 @@ def build_categories_menu(buttons, n_cols: int = 2, header_buttons: list = None,
 
 
 def create_reactions_keyboard(likes: int, dislikes: int, post_type: PostTypes, post_id: int):
-    if likes >= 1000:
-        likes = f"{likes // 1000}K"
+    if likes >= 1000000:
+        likes = f'{likes // 1000000}M'
+    elif likes >= 1000:
+        likes = f'{likes // 1000}K'
 
-    if dislikes >= 1000:
-        dislikes = f"{dislikes // 1000}K"
+    if dislikes >= 1000000:
+        likes = f'{dislikes // 1000000}M'
+    elif dislikes >= 1000:
+        dislikes = f'{dislikes // 1000}K'
 
-    like_button = InlineKeyboardButton(f"{general_inline_buttons_texts.LIKE_BUTTON_TEXT} {likes}",
+    like_button = InlineKeyboardButton(f'{general_inline_buttons_texts.LIKE_BUTTON_TEXT} {likes}',
                                        callback_data=f'{callbacks.LIKE}:{post_type}:{post_id}:{likes}:{dislikes}')
 
-    dislike_button = InlineKeyboardButton(f"{general_inline_buttons_texts.DISLIKE_BUTTON_TEXT} {dislikes}",
+    dislike_button = InlineKeyboardButton(f'{general_inline_buttons_texts.DISLIKE_BUTTON_TEXT} {dislikes}',
                                           callback_data=f'{callbacks.DISLIKE}:{post_type}:{post_id}:{likes}:{dislikes}')
 
     keyboard = InlineKeyboardMarkup([[like_button, dislike_button]])
@@ -248,3 +256,8 @@ def clean_channel_id(channel_id: int) -> int:
         return int(channel_id[4:])
     else:
         return int(channel_id)
+
+
+async def reset_and_switch_state(state: FSMContext, switch_to: State()):
+    await state.reset_state()
+    await state.set_state(switch_to)

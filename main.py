@@ -15,7 +15,6 @@ async def set_default_commands(dp: Dispatcher):
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
-    create_initial_data()
     logger.warning("Starting the bot...")
 
     register_generals_handlers(dp)
@@ -23,5 +22,5 @@ if __name__ == '__main__':
     register_categories_handlers(dp)
     register_personal_handlers(dp)
     register_admin_handlers(dp)
-
+    create_initial_data()
     executor.start_polling(dp, skip_updates=True, on_startup=set_default_commands)

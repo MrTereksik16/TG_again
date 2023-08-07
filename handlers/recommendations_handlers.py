@@ -11,7 +11,7 @@ from store.states import RecommendationsStates
 from utils.consts import answers, errors
 from keyboards import general_reply_buttons_texts
 from utils.helpers import get_next_post, send_next_post, send_end_message
-from utils.types import Modes
+from utils.custom_types import Modes
 
 
 async def on_start_command(message: Message, state: FSMContext):

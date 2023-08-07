@@ -2,7 +2,7 @@ from config.logging_config import logger
 from sqlalchemy import text
 from database.create_db import Session
 from database.models import User
-from utils.types import MarkTypes
+from utils.custom_types import MarkTypes
 
 
 async def update_viewed_personal_post_mark_type(user_tg_id: int, post_id: int, mark_type: MarkTypes):

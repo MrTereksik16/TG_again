@@ -1,4 +1,5 @@
 ADD_USER_CHANNELS = 'add_user_channels'
 DELETE_USER_CHANNEL = 'delete_user_channel'
+DELETE_PREMIUM_CHANNEL = 'delete_premium_channel'
 LIKE = 'like'
 DISLIKE = 'dislike'
