@@ -7,6 +7,7 @@ from handlers import register_personal_handlers, register_recommendations_handle
     register_generals_handlers, register_admin_handlers
 from database.initial_data import create_initial_data
 
+
 async def set_default_commands(dp: Dispatcher):
     await dp.bot.set_my_commands([
         types.BotCommand("start", "К рекомендациям"),
@@ -23,4 +24,5 @@ if __name__ == '__main__':
     register_personal_handlers(dp)
     register_admin_handlers(dp)
     create_initial_data()
+
     executor.start_polling(dp, skip_updates=True, on_startup=set_default_commands)

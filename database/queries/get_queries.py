@@ -79,7 +79,7 @@ async def get_personal_posts(user_tg_id: int) -> list:
         select posts.*, username, coefficient
         from user join user_channel on user_channel.user_id = user.id
         join personal_post posts on user_channel.channel_id = posts.personal_channel_id
-        join personal_channel on personal_channel.id = user_channel.channel_id
+        join personal_channel on personal_channel.id = user_channel.channel_id and user_channel.user_id = {user_tg_id}
         left join user_viewed_personal_post uvpp on posts.id = uvpp.personal_post_id and uvpp.user_id = {user_tg_id}
         where uvpp.user_id is NULL
         group by channel_id
