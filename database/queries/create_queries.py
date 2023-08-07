@@ -1,6 +1,6 @@
 from pyrogram import Client
 from database.create_db import Session
-from utils.consts import errors
+from utils.consts import errors, answers
 from config.logging_config import logger
 from database.models import UserChannel, User, PersonalPost, PersonalChannel, UserCategory, \
     PremiumPost, CategoryChannel, PremiumChannel, CategoryPost, UserViewedPremiumPost, \
@@ -17,7 +17,7 @@ async def create_user(user_tg_id: int) -> bool:
         session.commit()
         return True
     except Exception as err:
-        logger.error(err)
+        logger.error(f'Ошибка при добавлении пользователя: {err}')
         return False
     finally:
         session.close()
@@ -62,7 +62,7 @@ async def create_category_channel(channel_tg_id: int, channel_username: str, cat
         session.commit()
         return True
     except Exception as err:
-        logger.error(f'Ошибка при добавлении общего канала: {err}')
+        logger.error(f'Ошибка при добавлении канала в категории: {err}')
         if 'Duplicate entry' in str(err):
             return errors.DUPLICATE_ENTRY_ERROR
         return False
@@ -89,11 +89,11 @@ async def create_personal_posts(data: list[ParseData], bot_client: Client) -> bo
             session.add(personal_post)
             session.flush()
         session.commit()
-        await bot_client.send_message(chat_id, f'Посты с канала {channel_username} получены 👍', reply_markup=keyboard)
+        await bot_client.send_message(chat_id, answers.POSTS_TAKEN_MESSAGE_TEXT.format(channel_username=channel_username), reply_markup=keyboard)
         return True
     except Exception as err:
-        await bot_client.send_message(chat_id, f'Не удалось получить посты с канала {channel_username}', reply_markup=keyboard)
-        logger.error(f'Ошибка при добавлении пользовательского поста: {err}')
+        await bot_client.send_message(chat_id, answers.POSTS_NOT_TAKEN_MESSAGE_TEXT, reply_markup=keyboard)
+        logger.error(f'Ошибка при добавлении поста из персонального канала: {err}')
         return False
     finally:
         session.close()
@@ -117,10 +117,10 @@ async def create_premium_posts(data: list[ParseData], bot_client: Client) -> boo
             session.add(recommendation_post)
             session.flush()
         session.commit()
-        await bot_client.send_message(chat_id, f'Посты с канала {channel_username} получены 👍', reply_markup=keyboard)
+        await bot_client.send_message(chat_id, answers.POSTS_TAKEN_MESSAGE_TEXT.format(channel_username=channel_username), reply_markup=keyboard)
         return True
     except Exception as err:
-        await bot_client.send_message(chat_id, f'Не удалось получить посты с канала {channel_username}', reply_markup=keyboard)
+        await bot_client.send_message(chat_id, answers.POSTS_NOT_TAKEN_MESSAGE_TEXT.format(channel_username=channel_username), reply_markup=keyboard)
         logger.error(f'Ошибка при добавлении премиального поста: {err}')
         return False
     finally:
@@ -145,11 +145,11 @@ async def create_category_posts(data: list[ParseData], bot_client: Client) -> bo
             session.add(category_post)
             session.flush()
         session.commit()
-        await bot_client.send_message(chat_id, f'Посты с канала {channel_username} получены 👍', reply_markup=keyboard)
+        await bot_client.send_message(chat_id, answers.POSTS_TAKEN_MESSAGE_TEXT.format(channel_username=channel_username), reply_markup=keyboard)
         return True
     except Exception as err:
-        await bot_client.send_message(chat_id, f'Не удалось получить посты с канала {channel_username}', reply_markup=keyboard)
-        logger.error(f'Ошибка при добавлении общего поста: {err}')
+        await bot_client.send_message(chat_id, answers.POSTS_NOT_TAKEN_MESSAGE_TEXT.format(channel_username=channel_username), reply_markup=keyboard)
+        logger.error(f'Ошибка при добавлении поста из канала в категориях: {err}')
         return False
     finally:
         session.close()
@@ -163,7 +163,7 @@ async def create_category(category_name: str, category_emoji: str) -> bool | str
         session.commit()
         return True
     except Exception as err:
-        logger.error(f'Ошибка при добавлении общего поста: {err}')
+        logger.error(f'Ошибка при создании категории: {err}')
         if 'Duplicate entry' in str(err):
             return errors.DUPLICATE_ENTRY_ERROR
         return False
@@ -181,23 +181,23 @@ async def create_user_category(user_tg_id: int, category_id: int) -> bool:
     except Exception as err:
         if 'Duplicate entry' in str(err):
             return errors.DUPLICATE_ENTRY_ERROR
-        logger.error(f'Ошибка при добавлении категории пользователю: {err}')
+        logger.error(f'Ошибка при добавлении категории к пользователю: {err}')
         return False
     finally:
         session.close()
 
 
-async def create_recommendation_channel(channel_tg_id: int, channel_username: str) -> bool:
+async def create_premium_channel(channel_tg_id: int, channel_username: str) -> bool:
     session = Session()
     try:
-        new_recommendation_channel = PremiumChannel(id=channel_tg_id, username=channel_username)
-        session.add(new_recommendation_channel)
+        new_premium_channel = PremiumChannel(id=channel_tg_id, username=channel_username)
+        session.add(new_premium_channel)
         session.commit()
         return True
     except Exception as err:
         if 'Duplicate entry' in str(err):
             return errors.DUPLICATE_ENTRY_ERROR
-        logger.error(f'Ошибка при добавлении канала в рекомендации: {err}')
+        logger.error(f'Ошибка при добавлении премиального канала: {err}')
         return False
     finally:
         session.close()
@@ -211,7 +211,7 @@ async def create_user_viewed_premium_post(user_tg_id, post_id) -> bool:
         session.commit()
         return True
     except Exception as err:
-        logger.error(f'Ошибка при добавлении канала в просмотренные: {err}')
+        logger.error(f'Ошибка при добавлении премиального поста в просмотренные: {err}')
         return False
     finally:
         session.close()
@@ -225,7 +225,7 @@ async def create_user_viewed_category_post(user_tg_id, post_id) -> bool:
         session.commit()
         return True
     except Exception as err:
-        logger.error(f'Ошибка при добавлении канала в просмотренные: {err}')
+        logger.error(f'Ошибка при добавлении поста из канала в категориях в просмотренные: {err}')
         return False
     finally:
         session.close()
@@ -239,7 +239,7 @@ async def create_user_viewed_personal_post(user_tg_id, post_id) -> bool:
         session.commit()
         return True
     except Exception as err:
-        logger.error(f'Ошибка при добавлении канала в просмотренные: {err}')
+        logger.error(f'Ошибка при добавлении поста из персонального канала в просмотренные: {err}')
         return False
     finally:
         session.close()

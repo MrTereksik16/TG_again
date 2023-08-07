@@ -39,7 +39,7 @@ async def send_next_post(user_tg_id: int, chat_id: int, mode: Modes, post=None):
     likes = post.likes
     dislikes = post.dislikes
 
-    message_text = f'{text}\n{answers.POST_FROM_CHANNEL_MESSAGE.format(channel_username=channel_username)}'
+    message_text = f'{text}\n\nПост с канала @{channel_username}'
 
     if mode == Modes.CATEGORIES:
         category = post.name + post.emoji
@@ -107,7 +107,7 @@ async def send_end_message(user_tg_id, chat_id, mode: Modes):
         elif mode == Modes.CATEGORIES:
             no_post_keyboard = categories_reply_keyboards.categories_admin_start_control_keyboard
 
-    await bot_client.send_message(chat_id, answers.POST_ARE_OVER, reply_markup=no_post_keyboard)
+    await bot_client.send_message(chat_id, answers.POSTS_OVER_MESSAGE_TEXT, reply_markup=no_post_keyboard)
 
 
 async def get_next_post(user_tg_id: int, mode: Modes):
@@ -160,11 +160,13 @@ async def add_channels_from_message(message: Message, mode: Modes, category_name
     for link in links:
         try:
             if not match(r'^@[a-zA-Z0-9_]+', link):
-                link = sub(r'https://t.me/(\w+)', r'\1', link)
-            channel_entity = await bot_client.get_chat(link)
+                t_link = sub(r'https://t.me/(\w+)', r'\1', link)
+                channel_entity = await bot_client.get_chat(t_link)
+            else:
+                channel_entity = await bot_client.get_chat(link)
         except Exception as err:
             logger.error(f'Ошибка при получении сущности чата: {err}')
-            not_added.append(f'@{link.split("/")[-1].split("?")[0].replace("@", "")}')
+            not_added.append(f'{link}')
             continue
 
         channel_username = channel_entity.username
@@ -173,14 +175,14 @@ async def add_channels_from_message(message: Message, mode: Modes, category_name
         result = None
 
         if mode == Modes.RECOMMENDATIONS:
-            result = await create_recommendation_channel(channel_tg_id, channel_username)
-            if result:
+            result = await create_premium_channel(channel_tg_id, channel_username)
+            if result and result != errors.DUPLICATE_ENTRY_ERROR:
                 to_parse.append(channel_username)
         elif mode == Modes.CATEGORIES:
             category_id = await get_category_id(category_name)
             result = await create_category_channel(channel_tg_id, channel_username, category_id)
 
-            if result:
+            if result and result != errors.DUPLICATE_ENTRY_ERROR:
                 to_parse.append(channel_username)
         elif mode == Modes.PERSONAL:
             result = await create_personal_channel(channel_tg_id, channel_username)
@@ -200,14 +202,14 @@ async def add_channels_from_message(message: Message, mode: Modes, category_name
     answer = ''
 
     if mode == Modes.CATEGORIES and added:
-        answer += answers.CHANNELS_ADDED_WITH_CATEGORY_MESSAGE.format(category=category_name) + ', '.join(added)
+        answer += answers.CHANNELS_ADDED_WITH_CATEGORY_MESSAGE_TEXT.format(category=category_name) + ', '.join(added)
     elif (mode == Modes.PERSONAL or mode == Modes.RECOMMENDATIONS) and added:
-        answer += answers.CHANNELS_ADDED_MESSAGE + ', '.join(added)
+        answer += answers.CHANNELS_ADDED_MESSAGE_TEXT + ', '.join(added)
 
     if not_added:
-        answer += answers.CHANNELS_NOT_ADDED_MESSAGE + ', '.join(not_added)
+        answer += answers.CHANNELS_NOT_ADDED_MESSAGE_TEXT + ', '.join(not_added)
     if already_added:
-        answer += answers.CHANNELS_ALREADY_ADDED_MESSAGE + ', '.join(already_added)
+        answer += answers.CHANNELS_ALREADY_ADDED_MESSAGE_TEXT + ', '.join(already_added)
 
     return AddChannelsResult(answer, to_parse)
 
@@ -225,7 +227,7 @@ def build_menu(buttons: list[KeyboardButton], n_cols: int = 2, header_buttons: l
         menu.insert(0, header_buttons)
     if footer_buttons:
         menu.append(footer_buttons)
-    return ReplyKeyboardMarkup(menu)
+    return ReplyKeyboardMarkup(menu, resize_keyboard=True)
 
 
 def create_reactions_keyboard(likes: int, dislikes: int, post_type: PostTypes, post_id: int):
@@ -238,6 +240,8 @@ def create_reactions_keyboard(likes: int, dislikes: int, post_type: PostTypes, p
         likes = f'{dislikes // 1000000}M'
     elif dislikes >= 1000:
         dislikes = f'{dislikes // 1000}K'
+
+    post_type = post_type.premium or post_type.personal or post_type.category
 
     like_button = InlineKeyboardButton(f'{general_inline_buttons_texts.LIKE_BUTTON_TEXT} {likes}',
                                        callback_data=f'{callbacks.LIKE}:{post_type}:{post_id}:{likes}:{dislikes}')

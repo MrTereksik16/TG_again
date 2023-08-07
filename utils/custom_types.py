@@ -1,5 +1,3 @@
-from pyrogram.types import MessageEntity
-
 class Modes:
     RECOMMENDATIONS = 'recommendations'
     PERSONAL = 'personal'
@@ -11,13 +9,17 @@ class PostTypes:
     PERSONAL = 'personal'
     CATEGORY = 'category'
 
-    def __new__(cls, value: str) -> str:
-        if value == cls.PREMIUM:
-            return cls.PREMIUM
-        if value == cls.PERSONAL:
-            return cls.PERSONAL
-        if value == cls.CATEGORY:
-            return cls.CATEGORY
+    premium = None
+    personal = None
+    category = None
+
+    def __init__(self, value: str):
+        if value == 'premium':
+            self.premium = value
+        if value == 'personal':
+            self.personal = value
+        if value == 'category':
+            self.category = value
 
 
 class MarkTypes:
@@ -69,4 +71,3 @@ class ParseData:
         self.message_entities = message_entities
         self.channel_id = channel_id
         self.channel_username = channel_username
-

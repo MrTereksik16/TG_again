@@ -1,7 +1,7 @@
 from sqlalchemy import select
 from config.logging_config import logger
 from database.create_db import Session
-from database.models import PersonalChannel, UserChannel, UserCategory, PersonalPost, PremiumChannel, Category
+from database.models import PersonalChannel, UserChannel, UserCategory, PersonalPost, PremiumChannel, Category, CategoryChannel
 
 
 async def delete_personal_channel(user_tg_id, channel_username) -> bool:
@@ -42,6 +42,22 @@ async def delete_premium_channel(channel_username: str) -> bool:
             return False
     except Exception as err:
         logger.error(f'Ошибка при удалении категории пользователя: {err}')
+        return False
+    finally:
+        session.close()
+
+
+async def delete_category_channel(channel_username: str) -> bool:
+    session = Session()
+    try:
+        result = session.query(CategoryChannel).filter(CategoryChannel.username == channel_username).delete()
+        session.commit()
+        if result:
+            return True
+        else:
+            return False
+    except Exception as err:
+        logger.error(f'Ошибка при удалении канала из категорий: {err}')
         return False
     finally:
         session.close()

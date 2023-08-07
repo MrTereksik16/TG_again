@@ -24,6 +24,7 @@ class AdminPanelStates(StatesGroup):
     GET_CATEGORY_CHANNELS = State()
 
     DELETE_CATEGORIES = State()
+    DELETE_CATEGORIS_CHANNELS = State()
 
     GET_PREMIUM_CHANNELS = State()
 

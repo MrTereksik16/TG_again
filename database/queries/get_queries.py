@@ -276,7 +276,7 @@ async def get_categories_channels() -> list:
     session = Session()
     categories_channels = []
     try:
-        records = session.query(CategoryChannel.username, Category.emoji, Category.name).join(Category, CategoryChannel.category_id == Category.id)
+        records = session.query(CategoryChannel.username, Category.name, Category.emoji).join(Category, CategoryChannel.category_id == Category.id)
         for channel in records:
             categories_channels.append(channel)
     except Exception as err:
