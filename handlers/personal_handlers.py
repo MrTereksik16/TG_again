@@ -13,7 +13,7 @@ from database.queries.get_queries import get_user_channels_usernames
 from keyboards import personal_inline_keyboards
 from keyboards import personal_reply_keyboards
 from store.states import PersonalStates
-from utils.helpers import add_channels_from_message, get_next_post, send_next_post, send_end_message, reset_and_switch_state
+from utils.helpers import add_channels, get_next_post, send_next_post, send_end_message, reset_and_switch_state
 from keyboards import personal_reply_buttons_texts, general_reply_buttons_texts, general_reply_keyboards
 from utils.custom_types import Modes
 
@@ -50,24 +50,31 @@ async def on_personal_channels_message(message: Message, state: FSMContext):
     keyboard = personal_reply_keyboards.personal_start_control_keyboard
     chat_id = message.chat.id
     mode = Modes.PERSONAL
-    result = await add_channels_from_message(message, mode=mode)
+    result = await add_channels(message, mode=mode)
 
     answer = result.answer
     to_parse = result.to_parse
 
+    await reset_and_switch_state(state, PersonalStates.PERSONAL_FEED)
+
     if to_parse:
-        await message.answer(answer, reply_markup=ReplyKeyboardRemove())
+        return await message.answer(answer, reply_markup=keyboard)
     else:
+        keyboard = ReplyKeyboardRemove()
         await message.answer(answer, reply_markup=keyboard)
 
-    await state.set_state(PersonalStates.PERSONAL_FEED)
-    for channel_username in to_parse:
+    to_parse_len = len(to_parse)
+    for i, channel_username in enumerate(to_parse, start=1):
         posts = await parse(channel_username, chat_id, mode=mode)
         if not posts:
-            await bot_client.send_message(chat_id, 'Канал пуст', reply_markup=keyboard)
+            await bot_client.send_message(chat_id, 'Канал пуст', reply_markup=personal_reply_keyboards.personal_start_control_keyboard)
         else:
+            if i == to_parse_len:
+                keyboard = personal_reply_keyboards.personal_start_control_keyboard
+
             result = await create_personal_posts(posts)
             if result:
+
                 await bot_client.send_message(chat_id, f'Посты с канала @{channel_username} получены 👍', reply_markup=keyboard)
             else:
                 await bot_client.send_message(chat_id, f'Не удалось получить посты с канала {channel_username}', reply_markup=keyboard)

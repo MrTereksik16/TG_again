@@ -2,24 +2,47 @@ from aiogram import Dispatcher
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
 from aiogram.types import Message, ContentType
-from aiogram.types import ReplyKeyboardRemove
-from pyrogram.types import InlineKeyboardMarkup, CallbackQuery, InlineKeyboardButton
+from pyrogram.types import InlineKeyboardMarkup, CallbackQuery, InlineKeyboardButton, ReplyKeyboardRemove
 import callbacks
 from create_bot import bot_client
 from database.queries.delete_queries import delete_category, delete_premium_channel, delete_category_channel
-from database.queries.get_queries import get_categories, get_all_premium_channels, get_all_categories_channels
+from database.queries.get_queries import get_categories, get_all_premium_channels, get_all_categories_channels, get_coefficients
 from database.queries.create_queries import create_premium_posts, create_category_posts, create_category
 from utils.consts import answers, errors
 from parse import parse
 from store.states import AdminPanelStates
-from utils.helpers import add_channels_from_message, create_buttons, convert_list_of_items_to_string, build_menu, \
+from utils.helpers import add_channels, create_buttons, convert_list_of_items_to_string, create_menu, \
     reset_and_switch_state
 from keyboards import admin_reply_buttons_texts, admin_reply_keyboards, general_reply_keyboards, general_reply_buttons_texts, general_reply_buttons
 from utils.custom_types import Modes
 
 
 async def on_add_premium_channels_message(message: Message, state: FSMContext):
+    coefficients = await get_coefficients()
+    if not coefficients:
+        return await message.answer('Список коэффициентов пуст. <b>Добавьте минимум один коэффициент</b>')
+
+    await state.set_state(AdminPanelStates.GET_CHANNELS_COEFFICIENT)
+    await state.update_data(coefficients=coefficients)
+    buttons = create_buttons(coefficients)
+    keyboard = create_menu(buttons, n_cols=1, header_buttons=general_reply_buttons.cancel_button)
+    await message.answer('<b>Выберите коэффициент</b>\n\nОн влияет на частоту попадания постов из позже добавленных каналов в <b>рекомендации</b>',
+                         reply_markup=keyboard)
+
+
+async def on_channels_coefficient_message(message: Message, state: FSMContext):
+    if message.text == general_reply_buttons_texts.CANCEL_BUTTON_TEXT:
+        await reset_and_switch_state(state, AdminPanelStates.ADMIN_PANEL)
+        return await message.answer(answers.ADMIN_PANEL_MESSAGE_TEXT, reply_markup=admin_reply_keyboards.admin_panel_control_keyboard)
+
+    coefficients: list = (await state.get_data())['coefficients']
+    coefficient = int(message.text)
+
+    if coefficient not in coefficients:
+        return await message.answer('Такого коэффициента нет')
+
     await state.set_state(AdminPanelStates.GET_PREMIUM_CHANNELS)
+    await state.update_data(coefficient=coefficient)
     await message.answer(answers.ADD_CHANNELS_MESSAGE_TEXT, reply_markup=general_reply_keyboards.general_cancel_keyboard)
 
 
@@ -28,26 +51,34 @@ async def on_premium_channels_message(message: Message, state: FSMContext):
         await reset_and_switch_state(state, AdminPanelStates.ADMIN_PANEL)
         return await message.answer(answers.ADMIN_PANEL_MESSAGE_TEXT, reply_markup=admin_reply_keyboards.admin_panel_control_keyboard)
 
+    coefficient = (await state.get_data())['coefficient']
     keyboard = admin_reply_keyboards.admin_panel_control_keyboard
     chat_id = message.chat.id
     mode = Modes.RECOMMENDATIONS
-    result = await add_channels_from_message(message, mode=mode)
+    channels = message.text
+    user_tg_id = message.from_user.id
 
-    answer = result.answer
-    to_parse = result.to_parse
+    result_data = await add_channels(channels, user_tg_id, coefficient=coefficient, mode=mode)
 
-    if to_parse:
-        await message.answer(answer, reply_markup=ReplyKeyboardRemove())
+    answer = result_data.answer
+    to_parse = result_data.to_parse
+
+    await reset_and_switch_state(state, AdminPanelStates.ADMIN_PANEL)
+
+    if not to_parse:
+        return await message.answer(answer, reply_markup=keyboard)
     else:
+        keyboard = ReplyKeyboardRemove()
         await message.answer(answer, reply_markup=keyboard)
 
-    await state.set_state(AdminPanelStates.ADMIN_PANEL)
-
-    for channel_username in to_parse:
+    to_parse_len = len(to_parse)
+    for i, channel_username in enumerate(to_parse, start=1):
         posts = await parse(channel_username, chat_id, mode=mode)
         if not posts:
-            await bot_client.send_message(chat_id, 'Канал пуст', reply_markup=keyboard)
+            await bot_client.send_message(chat_id, 'Канал пуст', reply_markup=admin_reply_keyboards.admin_panel_control_keyboard)
         else:
+            if i == to_parse_len:
+                keyboard = admin_reply_keyboards.admin_panel_control_keyboard
             result = await create_premium_posts(posts)
             if result:
                 await bot_client.send_message(chat_id, f'Посты с канала @{channel_username} получены 👍', reply_markup=keyboard)
@@ -61,7 +92,7 @@ async def on_add_category_channels_message(message: Message, state: FSMContext):
         return await message.answer('Список категорий пуст', reply_markup=admin_reply_keyboards.admin_panel_control_keyboard)
     answer = '<b>Выберите категорию</b>'
     buttons = create_buttons(categories)
-    keyboard = build_menu(buttons, header_buttons=[general_reply_buttons.cancel_button])
+    keyboard = create_menu(buttons, header_buttons=general_reply_buttons.cancel_button)
 
     await message.answer(answer, reply_markup=keyboard)
     await state.update_data(categories=categories)
@@ -84,30 +115,39 @@ async def on_category_message(message: Message, state: FSMContext):
 
 
 async def on_category_channels_message(message: Message, state: FSMContext):
+    keyboard = admin_reply_keyboards.admin_panel_control_keyboard
     if message.text == general_reply_buttons_texts.CANCEL_BUTTON_TEXT:
         await reset_and_switch_state(state, AdminPanelStates.ADMIN_PANEL)
-        return await message.answer(answers.ADMIN_PANEL_MESSAGE_TEXT, reply_markup=admin_reply_keyboards.admin_panel_control_keyboard)
+        return await message.answer(answers.ADMIN_PANEL_MESSAGE_TEXT, reply_markup=keyboard)
 
-    keyboard = admin_reply_keyboards.admin_panel_control_keyboard
     chat_id = message.chat.id
     mode = Modes.CATEGORIES
     category = (await state.get_data())['category']
+    channels = message.text
+    user_tg_id = message.from_user.id
 
-    result = await add_channels_from_message(message, category_name=category, mode=mode)
+    result = await add_channels(channels, user_tg_id, category_name=category, mode=mode)
 
     answer = result.answer
     to_parse = result.to_parse
 
-    if to_parse:
-        await message.answer(answer, reply_markup=ReplyKeyboardRemove())
+    await reset_and_switch_state(state, AdminPanelStates.ADMIN_PANEL)
+
+    if not to_parse:
+        return await message.answer(answer, reply_markup=keyboard)
     else:
-        await message.answer(answer, reply_markup=admin_reply_keyboards.admin_panel_control_keyboard)
-    await state.set_state(AdminPanelStates.ADMIN_PANEL)
-    for channel_username in to_parse:
+        keyboard = ReplyKeyboardRemove()
+        await message.answer(answer, reply_markup=keyboard)
+
+    to_parse_len = len(to_parse)
+    for i, channel_username in enumerate(to_parse, start=1):
         posts = await parse(channel_username, chat_id, mode=mode)
         if not posts:
             await bot_client.send_message(chat_id, 'Канал пуст', reply_markup=admin_reply_keyboards.admin_panel_control_keyboard)
         else:
+            if i == to_parse_len:
+                keyboard = admin_reply_keyboards.admin_panel_control_keyboard
+
             result = await create_category_posts(posts)
             if result:
                 await bot_client.send_message(chat_id, f'Посты с канала @{channel_username} получены 👍', reply_markup=keyboard)
@@ -190,7 +230,7 @@ async def on_delete_category_message(message: Message, state: FSMContext):
         return await message.answer('Список категорий пуст')
 
     buttons = create_buttons(categories)
-    keyboard = build_menu(buttons, header_buttons=[general_reply_buttons.cancel_button])
+    keyboard = create_menu(buttons, header_buttons=general_reply_buttons.cancel_button)
     await message.answer(
         'Нажмите на категорию, которую хотите удалить.\n\n<b>Если добавленные в категории каналы относятся к выбранной категории, то они также удалятся!</b>',
         reply_markup=keyboard)
@@ -218,7 +258,7 @@ async def on_delete_category_name_message(message: Message, state: FSMContext):
             await reset_and_switch_state(state, AdminPanelStates.ADMIN_PANEL)
             return await message.answer('Список категорий пуст', reply_markup=admin_reply_keyboards.admin_panel_control_keyboard)
         buttons = create_buttons(categories)
-        keyboard = build_menu(buttons, header_buttons=[general_reply_buttons.cancel_button])
+        keyboard = create_menu(buttons, header_buttons=general_reply_buttons.cancel_button)
         await message.answer('Категория успешно удалена', reply_markup=keyboard)
         await state.update_data(categories=categories)
     else:
@@ -274,7 +314,7 @@ async def on_delete_categories_channels_message(message: Message, state: FSMCont
 
     buttons_texts = [f'{channel.username} | {channel.name} {channel.emoji}' for channel in channels_list]
     buttons = create_buttons(buttons_texts)
-    keyboard = build_menu(buttons, header_buttons=[general_reply_buttons.cancel_button])
+    keyboard = create_menu(buttons, header_buttons=general_reply_buttons.cancel_button)
 
     await message.answer(answers.DELETE_CHANNEL_MESSAGE_TEXT, reply_markup=keyboard)
     await state.update_data(buttons_texts=buttons_texts)
@@ -299,7 +339,7 @@ async def on_category_channel_message(message: Message, state: FSMContext):
                 return await message.answer('Все каналы из категорий удалены', reply_markup=keyboard)
 
             buttons = create_buttons(buttons_texts)
-            keyboard = build_menu(buttons, header_buttons=[general_reply_buttons.cancel_button])
+            keyboard = create_menu(buttons, header_buttons=general_reply_buttons.cancel_button)
             await message.answer('Канал успешно удалён', reply_markup=keyboard)
             await state.update_data(buttons_texts=buttons_texts)
         else:
@@ -314,7 +354,11 @@ def register_admin_handlers(dp: Dispatcher):
         Text(equals=admin_reply_buttons_texts.ADD_PREMIUM_CHANNELS_BUTTON_TEXT),
         state=AdminPanelStates.ADMIN_PANEL
     )
-
+    dp.register_message_handler(
+        on_channels_coefficient_message,
+        content_types=ContentType.TEXT,
+        state=AdminPanelStates.GET_CHANNELS_COEFFICIENT
+    )
     dp.register_message_handler(
         on_premium_channels_message,
         state=AdminPanelStates.GET_PREMIUM_CHANNELS

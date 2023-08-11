@@ -21,10 +21,10 @@ async def create_user(user_tg_id: int) -> bool:
         session.close()
 
 
-async def create_personal_channel(channel_tg_id: int, channel_username: str) -> int | str | None:
+async def create_personal_channel(channel_tg_id: int, channel_username: str, coefficient: int) -> int | str | None:
     session = Session()
     try:
-        personal_channel = PersonalChannel(id=channel_tg_id, username=channel_username)
+        personal_channel = PersonalChannel(id=channel_tg_id, username=channel_username, coefficient=coefficient)
         session.add(personal_channel)
         session.commit()
         return True
@@ -52,10 +52,10 @@ async def create_user_channel(user_tg_id: int, channel_tg_id: int) -> bool:
         session.close()
 
 
-async def create_category_channel(channel_tg_id: int, channel_username: str, category_id: int) -> bool:
+async def create_category_channel(channel_tg_id: int, channel_username: str, category_id: int, coefficient: int) -> bool:
     session = Session()
     try:
-        new_category_channel = CategoryChannel(id=channel_tg_id, category_id=category_id, username=channel_username)
+        new_category_channel = CategoryChannel(id=channel_tg_id, category_id=category_id, username=channel_username, coefficient=coefficient)
         session.add(new_category_channel)
         session.commit()
         return True
@@ -219,10 +219,10 @@ async def create_user_category(user_tg_id: int, category_id: int) -> bool:
         session.close()
 
 
-async def create_recommendation_channel(channel_tg_id: int, channel_username: str) -> bool:
+async def create_recommendation_channel(channel_tg_id: int, channel_username: str, coefficient: int) -> bool:
     session = Session()
     try:
-        new_recommendation_channel = PremiumChannel(id=channel_tg_id, username=channel_username)
+        new_recommendation_channel = PremiumChannel(id=channel_tg_id, username=channel_username, coefficient=coefficient)
         session.add(new_recommendation_channel)
         session.commit()
         return True

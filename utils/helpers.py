@@ -152,9 +152,8 @@ async def send_end_message(user_tg_id, chat_id, mode: Modes):
     await bot_client.send_message(chat_id, answers.POSTS_OVER, reply_markup=no_post_keyboard)
 
 
-async def add_channels_from_message(message: Message, mode: Modes, category_name='', ) -> AddChannelsResult:
-    links = [link.strip() for link in message.text.split(',') if link.strip()]
-    user_tg_id = message.from_user.id
+async def add_channels(channels_string: str, user_tg_id: int, mode: Modes, category_name='', coefficient: int = 1) -> AddChannelsResult:
+    links = [link.strip() for link in channels_string.split(',') if link.strip()]
     to_parse = []
     added = []
     not_added = []
@@ -178,16 +177,16 @@ async def add_channels_from_message(message: Message, mode: Modes, category_name
         result = None
 
         if mode == Modes.RECOMMENDATIONS:
-            result = await create_recommendation_channel(channel_tg_id, channel_username)
+            result = await create_recommendation_channel(channel_tg_id, channel_username, coefficient)
             if result:
                 to_parse.append(channel_username)
         elif mode == Modes.CATEGORIES:
             category_id = await get_category_id(category_name)
-            result = await create_category_channel(channel_tg_id, channel_username, category_id)
+            result = await create_category_channel(channel_tg_id, channel_username, category_id, coefficient)
             if result:
                 to_parse.append(channel_username)
         elif mode == Modes.PERSONAL:
-            r = await create_personal_channel(channel_tg_id, channel_username)
+            r = await create_personal_channel(channel_tg_id, channel_username, coefficient)
             if r == errors.DUPLICATE_ENTRY_ERROR:
                 result = await create_user_channel(user_tg_id, channel_tg_id)
             elif r:
@@ -222,9 +221,11 @@ def create_buttons(texts: list[str]):
     return buttons
 
 
-def build_menu(buttons: list[KeyboardButton], n_cols: int = 2, header_buttons: list = None, footer_buttons: list = None) -> ReplyKeyboardMarkup:
+def create_menu(buttons: list[KeyboardButton], n_cols: int = 2, header_buttons: list[KeyboardButton] | KeyboardButton = None, footer_buttons: list = None) -> ReplyKeyboardMarkup:
     menu = [buttons[i:i + n_cols] for i in range(0, len(buttons), n_cols)]
     if header_buttons:
+        if not isinstance(header_buttons, list):
+            header_buttons = [header_buttons]
         menu.insert(0, header_buttons)
     if footer_buttons:
         menu.append(footer_buttons)

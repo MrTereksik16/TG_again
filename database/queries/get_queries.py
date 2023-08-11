@@ -2,7 +2,7 @@ from sqlalchemy import text
 from config.logging_config import logger
 from database.create_db import Session
 from database.models import User, PersonalChannel, UserChannel, PremiumChannel, CategoryChannel, UserViewedPremiumPost, Category, UserCategory, \
-    UserViewedCategoryPost, UserViewedPersonalPost, PersonalPost, PremiumPost, CategoryPost
+    UserViewedCategoryPost, UserViewedPersonalPost, PersonalPost, PremiumPost, CategoryPost, Coefficient
 from utils.custom_types import MarkTypes
 
 
@@ -351,7 +351,7 @@ async def get_category_id(category_name) -> int | None:
         return category_id
 
 
-async def get_all_channels_ids():
+async def get_all_channels_ids() -> list:
     session = Session()
     channels_ids = []
     try:
@@ -370,3 +370,19 @@ async def get_all_channels_ids():
     finally:
         session.close()
         return channels_ids
+
+
+async def get_coefficients() -> list:
+    session = Session()
+    coefficients = []
+    try:
+        records = session.query(Coefficient).filter(Coefficient.value > 1).all()
+
+        for coefficient in records:
+            coefficients.append(coefficient.value)
+
+    except Exception as err:
+        logger.error(f'Ошибка при получении всех коэффициентов: {err}')
+    finally:
+        session.close()
+        return coefficients

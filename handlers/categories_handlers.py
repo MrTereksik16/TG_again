@@ -11,7 +11,7 @@ from keyboards import categories_reply_keyboards, general_reply_buttons, general
 from store.states import CategoriesStates
 from utils.consts import answers, errors
 from utils.helpers import convert_list_of_items_to_string, create_buttons, get_next_post, send_next_post, send_end_message, \
-    build_menu, reset_and_switch_state
+    create_menu, reset_and_switch_state
 from utils.custom_types import Modes
 
 
@@ -34,7 +34,7 @@ async def on_add_or_delete_user_categories_message(message: Message, state: FSMC
     user_categories = await get_user_categories(user_tg_id)
 
     cat_buttons = create_buttons(categories)
-    keyboard = build_menu(cat_buttons, header_buttons=[general_reply_buttons.close_button])
+    keyboard = create_menu(cat_buttons, header_buttons=general_reply_buttons.close_button)
 
     answer = 'Наш список категорий, но он обязательно будет обновляться:'
     answer += convert_list_of_items_to_string(categories)

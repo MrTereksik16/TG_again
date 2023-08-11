@@ -22,6 +22,7 @@ class AdminPanelStates(StatesGroup):
     GET_CATEGORY_NAME = State()
     GET_CATEGORY_EMOJI = State()
     GET_CATEGORY_CHANNELS = State()
+    GET_CHANNELS_COEFFICIENT = State()
 
     DELETE_CATEGORIES_CHANNELS = State()
     DELETE_CATEGORIES = State()

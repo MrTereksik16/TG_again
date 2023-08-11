@@ -1,7 +1,7 @@
 from sqlalchemy import text
 from config.logging_config import logger
 from database.create_db import Session
-from database.models import Category, MarkType
+from database.models import Category, MarkType, Coefficient
 from utils.consts.categories import CATEGORIES, CATEGORIES_EMOJI
 
 
@@ -33,6 +33,17 @@ def create_initial_data():
         session.add(new_mark_type)
         new_mark_type = MarkType(name='neutral')
         session.add(new_mark_type)
+
+        new_coefficient = Coefficient(value=1)
+        session.add(new_coefficient)
+        new_coefficient = Coefficient(value=2)
+        session.add(new_coefficient)
+        new_coefficient = Coefficient(value=3)
+        session.add(new_coefficient)
+        new_coefficient = Coefficient(value=4)
+        session.add(new_coefficient)
+        new_coefficient = Coefficient(value=5)
+        session.add(new_coefficient)
         session.commit()
     except Exception as err:
         logger.error(err)
