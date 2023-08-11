@@ -36,7 +36,7 @@ async def on_like_button_click(callback: CallbackQuery):
 
     mark_type = MarkTypes.LIKE
     if post_type == PostTypes.PREMIUM:
-        mark_type = await get_viewed_premium_post_mark_type(post_id)
+        mark_type = await get_viewed_premium_post_mark_type(user_tg_id, post_id)
 
         if mark_type == MarkTypes.DISLIKE or mark_type == MarkTypes.NEUTRAL:
             await update_viewed_premium_post_mark_type(user_tg_id, post_id, MarkTypes.LIKE)
@@ -47,7 +47,7 @@ async def on_like_button_click(callback: CallbackQuery):
             dislikes -= 1
 
     elif post_type == PostTypes.CATEGORY:
-        mark_type = await get_viewed_category_post_mark_type(post_id)
+        mark_type = await get_viewed_category_post_mark_type(user_tg_id, post_id)
 
         if mark_type == MarkTypes.DISLIKE or mark_type == MarkTypes.NEUTRAL:
             await update_viewed_category_post_mark_type(user_tg_id, post_id, MarkTypes.LIKE)
@@ -58,7 +58,7 @@ async def on_like_button_click(callback: CallbackQuery):
             dislikes -= 1
 
     elif post_type == PostTypes.PERSONAL:
-        mark_type = await get_viewed_personal_post_mark_type(post_id)
+        mark_type = await get_viewed_personal_post_mark_type(user_tg_id, post_id)
         if mark_type == MarkTypes.DISLIKE or mark_type == MarkTypes.NEUTRAL:
             await update_viewed_personal_post_mark_type(user_tg_id, post_id, MarkTypes.LIKE)
             await update_personal_post_likes(post_id)
@@ -89,7 +89,7 @@ async def on_dislike_button_click(callback: CallbackQuery):
     mark_type = None
 
     if post_type == PostTypes.PREMIUM:
-        mark_type = await get_viewed_premium_post_mark_type(post_id)
+        mark_type = await get_viewed_premium_post_mark_type(user_tg_id, post_id)
 
         if mark_type == MarkTypes.LIKE or mark_type == MarkTypes.NEUTRAL:
             await update_viewed_premium_post_mark_type(user_tg_id, post_id, MarkTypes.DISLIKE)
@@ -100,7 +100,7 @@ async def on_dislike_button_click(callback: CallbackQuery):
             likes -= 1
 
     elif post_type == PostTypes.CATEGORY:
-        mark_type = await get_viewed_category_post_mark_type(post_id)
+        mark_type = await get_viewed_category_post_mark_type(user_tg_id, post_id)
 
         if mark_type == MarkTypes.LIKE or mark_type == MarkTypes.NEUTRAL:
             await update_viewed_category_post_mark_type(user_tg_id, post_id, MarkTypes.DISLIKE)
@@ -112,7 +112,7 @@ async def on_dislike_button_click(callback: CallbackQuery):
             likes -= 1
 
     elif post_type == PostTypes.PERSONAL:
-        mark_type = await get_viewed_personal_post_mark_type(post_id)
+        mark_type = await get_viewed_personal_post_mark_type(user_tg_id, post_id)
 
         if mark_type == MarkTypes.LIKE or mark_type == MarkTypes.NEUTRAL:
             await update_viewed_personal_post_mark_type(user_tg_id, post_id, MarkTypes.DISLIKE)

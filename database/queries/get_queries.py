@@ -271,11 +271,14 @@ async def get_user_categories(user_tg_id: int) -> list[str]:
         return result
 
 
-async def get_viewed_personal_post_mark_type(post_id: int) -> MarkTypes | None:
+async def get_viewed_personal_post_mark_type(user_tg_id: int, post_id: int) -> MarkTypes | None:
     session = Session()
     mark_type = None
     try:
-        post = session.query(UserViewedPersonalPost).filter(UserViewedPersonalPost.personal_post_id == post_id).one()
+        post = session \
+            .query(UserViewedPersonalPost) \
+            .filter(UserViewedPersonalPost.user_id == user_tg_id, UserViewedPersonalPost.personal_post_id == post_id) \
+            .one()
         mark_type = MarkTypes(post.mark_type_id)
     except Exception as err:
         logger.error(f'Ошибка при получении реакции на персональный пост пользователя: {err}')
@@ -284,11 +287,14 @@ async def get_viewed_personal_post_mark_type(post_id: int) -> MarkTypes | None:
         return mark_type
 
 
-async def get_viewed_premium_post_mark_type(post_id: int) -> MarkTypes | None:
+async def get_viewed_premium_post_mark_type(user_tg_id: int, post_id: int) -> MarkTypes | None:
     session = Session()
     mark_type = None
     try:
-        post = session.query(UserViewedPremiumPost.mark_type_id).filter(UserViewedPremiumPost.premium_post_id == post_id).one()
+        post = session \
+            .query(UserViewedPremiumPost.mark_type_id) \
+            .filter(UserViewedPremiumPost.user_id == user_tg_id, UserViewedPremiumPost.premium_post_id == post_id) \
+            .one()
         mark_type = MarkTypes(post.mark_type_id)
     except Exception as err:
         logger.error(f'Ошибка при получении реакции на премиальный пост пользователя: {err}')
@@ -297,11 +303,14 @@ async def get_viewed_premium_post_mark_type(post_id: int) -> MarkTypes | None:
         return mark_type
 
 
-async def get_viewed_category_post_mark_type(post_id: int) -> MarkTypes | None:
+async def get_viewed_category_post_mark_type(user_tg_id: int, post_id: int) -> MarkTypes | None:
     session = Session()
     mark_type = None
     try:
-        post = session.query(UserViewedCategoryPost.mark_type_id).filter(UserViewedCategoryPost.category_post_id == post_id).one()
+        post = session \
+            .query(UserViewedCategoryPost) \
+            .filter(UserViewedCategoryPost.user_id == user_tg_id, UserViewedCategoryPost.category_post_id == post_id) \
+            .one()
         mark_type = MarkTypes(post.mark_type_id)
     except Exception as err:
         logger.error(f'Ошибка при получении реакции на пост из категорий пользователя: {err}')
