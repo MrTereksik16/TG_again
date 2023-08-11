@@ -28,7 +28,7 @@ async def on_start_command(message: Message, state: FSMContext):
         await create_user(user_tg_id)
         bot_info = await bot.get_me()
         bot_username = bot_info.first_name
-        await message.answer(answers.START_MESSAGE_FOR_NEW.format(bot_username=bot_username), reply_markup=keyboard)
+        await message.answer(answers.NEW_START_MESSAGE_TEXT.format(bot_username=bot_username), reply_markup=keyboard)
     else:
         await message.answer('<b>Лента рекомендаций</b>', reply_markup=keyboard)
 
@@ -54,7 +54,7 @@ async def on_start_message(message: Message):
         keyboard = recommendations_reply_keyboards.recommendations_admin_control_keyboard
 
     if next_post:
-        await message.answer(answers.PRE_START_MESSAGE, reply_markup=keyboard)
+        await message.answer(answers.PRE_SCROLL_MESSAGE_TEXT, reply_markup=keyboard)
         await send_next_post(user_tg_id, chat_id, Modes.RECOMMENDATIONS, next_post)
     else:
         await send_end_message(user_tg_id, chat_id, Modes.RECOMMENDATIONS)

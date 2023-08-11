@@ -1,6 +1,6 @@
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
-from aiogram.types import ContentType, ParseMode, Message
+from aiogram.types import ContentType, Message
 from aiogram import Dispatcher
 from config.config import ADMINS
 from database.queries.create_queries import create_user_category
@@ -10,8 +10,8 @@ from keyboards import categories_reply_keyboards, general_reply_buttons, general
     categories_reply_buttons_texts
 from store.states import CategoriesStates
 from utils.consts import answers, errors
-from utils.helpers import convert_list_of_items_to_string, create_categories_buttons, get_next_post, send_next_post, send_end_message, \
-    build_menu
+from utils.helpers import convert_list_of_items_to_string, create_buttons, get_next_post, send_next_post, send_end_message, \
+    build_menu, reset_and_switch_state
 from utils.custom_types import Modes
 
 
@@ -33,7 +33,7 @@ async def on_add_or_delete_user_categories_message(message: Message, state: FSMC
     categories = await get_categories()
     user_categories = await get_user_categories(user_tg_id)
 
-    cat_buttons = create_categories_buttons(categories)
+    cat_buttons = create_buttons(categories)
     keyboard = build_menu(cat_buttons, header_buttons=[general_reply_buttons.close_button])
 
     answer = 'Наш список категорий, но он обязательно будет обновляться:'
@@ -53,18 +53,18 @@ async def on_category_message(message: Message, state: FSMContext):
     user_tg_id = message.from_user.id
     categories = await get_categories()
     user_is_admin = user_tg_id in ADMINS
-
+    print(categories)
     keyboard = categories_reply_keyboards.categories_start_control_keyboard
     if user_is_admin:
         keyboard = categories_reply_keyboards.categories_admin_start_control_keyboard
 
     if message.text == general_reply_buttons_texts.CLOSE_BUTTON_TEXT:
-        await state.set_state(CategoriesStates.CATEGORIES_FEED)
-        return await message.answer(answers.CATEGORIES_FEED, reply_markup=keyboard)
+        await reset_and_switch_state(state, CategoriesStates.CATEGORIES_FEED)
+        return await message.answer(answers.CATEGORIES_FEED_MESSAGE_TEXT, reply_markup=keyboard)
     elif message.text not in categories:
         return await message.answer('Такой категории у нас пока нет 😅')
 
-    category_name = message.text[:-1]
+    category_name = message.text.split(' ')[0]
     category_id = await get_category_id(category_name)
 
     if not category_id:
@@ -111,7 +111,7 @@ async def on_start_message(message: Message):
         keyboard = categories_reply_keyboards.categories_admin_control_keyboard
 
     if next_post:
-        await message.answer(answers.PRE_START_MESSAGE, reply_markup=keyboard)
+        await message.answer(answers.PRE_SCROLL_MESSAGE_TEXT, reply_markup=keyboard)
         await send_next_post(user_tg_id, chat_id, Modes.CATEGORIES, next_post)
     else:
         await send_end_message(user_tg_id, chat_id, Modes.CATEGORIES)

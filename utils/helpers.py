@@ -4,8 +4,8 @@ import random
 from re import match, sub
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State
-from aiogram.types import Message
-from pyrogram.types import KeyboardButton, InputMediaPhoto, InputMediaVideo, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
+from pyrogram import Client
+from pyrogram.types import KeyboardButton, InputMediaPhoto, InputMediaVideo, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, Message
 from pyrogram.enums import ChatAction
 from config.config import ADMINS
 from create_bot import bot_client
@@ -17,6 +17,7 @@ from keyboards import personal_reply_keyboards, recommendations_reply_keyboards,
 import callbacks
 from utils.custom_types import Modes, PostTypes, AddChannelsResult
 from pyrogram.types import ReplyKeyboardRemove
+from PIL import Image
 
 
 def convert_list_of_items_to_string(items: list, code: bool = True) -> str:
@@ -39,7 +40,7 @@ async def send_next_post(user_tg_id: int, chat_id: int, mode: Modes, post=None):
     likes = post.likes
     dislikes = post.dislikes
 
-    message_text = f'{text}\n{answers.POST_FROM_CHANNEL_MESSAGE.format(channel_username=channel_username)}'
+    message_text = f'{text}\n{answers.POST_FROM_CHANNEL_MESSAGE_TEXT.format(channel_username=channel_username)}'
 
     if mode == Modes.CATEGORIES:
         category = post.name + post.emoji
@@ -49,8 +50,10 @@ async def send_next_post(user_tg_id: int, chat_id: int, mode: Modes, post=None):
 
     if mode == Modes.RECOMMENDATIONS:
         if hasattr(post, 'premium_channel_id'):
+            await create_user_viewed_premium_post(user_tg_id, post.id)
             keyboard = create_reactions_keyboard(likes, dislikes, PostTypes.PREMIUM, post.id)
         elif hasattr(post, 'category_channel_id'):
+            await create_user_viewed_category_post(user_tg_id, post.id)
             keyboard = create_reactions_keyboard(likes, dislikes, PostTypes.CATEGORY, post.id)
 
     elif mode == Modes.CATEGORIES:
@@ -62,7 +65,7 @@ async def send_next_post(user_tg_id: int, chat_id: int, mode: Modes, post=None):
         keyboard = create_reactions_keyboard(likes, dislikes, PostTypes.PERSONAL, post.id)
 
     try:
-        if media_path is None:
+        if not media_path:
             await bot_client.send_message(chat_id, message_text, entities=entities, reply_markup=keyboard)
         else:
             if media_path.endswith('.jpg'):
@@ -90,38 +93,18 @@ async def send_next_post(user_tg_id: int, chat_id: int, mode: Modes, post=None):
         logger.error(f'Ошибка при отправлении поста пользователю: {err}')
 
 
-async def send_end_message(user_tg_id, chat_id, mode: Modes):
-    no_post_keyboard = ReplyKeyboardRemove()
-    user_is_admin = user_tg_id in ADMINS
-
-    if mode == Modes.RECOMMENDATIONS:
-        no_post_keyboard = recommendations_reply_keyboards.recommendations_start_control_keyboard
-    elif mode == Modes.CATEGORIES:
-        no_post_keyboard = categories_reply_keyboards.categories_start_control_keyboard
-    elif mode == Modes.PERSONAL:
-        no_post_keyboard = personal_reply_keyboards.personal_start_control_keyboard
-
-    if user_is_admin:
-        if mode == Modes.RECOMMENDATIONS:
-            no_post_keyboard = recommendations_reply_keyboards.recommendations_admin_start_control_keyboard
-        elif mode == Modes.CATEGORIES:
-            no_post_keyboard = categories_reply_keyboards.categories_admin_start_control_keyboard
-
-    await bot_client.send_message(chat_id, answers.POST_ARE_OVER, reply_markup=no_post_keyboard)
-
-
 async def get_next_post(user_tg_id: int, mode: Modes):
     next_post = None
 
     if mode == Modes.PERSONAL:
-        posts = await get_personal_posts(user_tg_id)
+        posts = await get_user_personal_posts(user_tg_id)
         next_post = choose_post(posts)
     elif mode == Modes.CATEGORIES:
         posts = await get_best_not_viewed_categories_posts(user_tg_id)
         next_post = choose_post(posts)
     elif mode == Modes.RECOMMENDATIONS:
         posts = []
-        premium_best_posts = await get_best_not_viewed_premium_posts(user_tg_id)
+        premium_best_posts = await get_premium_posts(user_tg_id)
         categories_best_posts = await get_best_categories_posts(user_tg_id)
 
         for post in premium_best_posts:
@@ -129,7 +112,6 @@ async def get_next_post(user_tg_id: int, mode: Modes):
 
         for post in categories_best_posts:
             posts.append(post)
-
         next_post = choose_post(posts)
 
     return next_post
@@ -148,6 +130,26 @@ def choose_post(posts: list):
             return post
 
     return posts[0]
+
+
+async def send_end_message(user_tg_id, chat_id, mode: Modes):
+    no_post_keyboard = ReplyKeyboardRemove()
+    user_is_admin = user_tg_id in ADMINS
+
+    if mode == Modes.RECOMMENDATIONS:
+        no_post_keyboard = recommendations_reply_keyboards.recommendations_start_control_keyboard
+    elif mode == Modes.CATEGORIES:
+        no_post_keyboard = categories_reply_keyboards.categories_start_control_keyboard
+    elif mode == Modes.PERSONAL:
+        no_post_keyboard = personal_reply_keyboards.personal_start_control_keyboard
+
+    if user_is_admin:
+        if mode == Modes.RECOMMENDATIONS:
+            no_post_keyboard = recommendations_reply_keyboards.recommendations_admin_start_control_keyboard
+        elif mode == Modes.CATEGORIES:
+            no_post_keyboard = categories_reply_keyboards.categories_admin_start_control_keyboard
+
+    await bot_client.send_message(chat_id, answers.POSTS_OVER, reply_markup=no_post_keyboard)
 
 
 async def add_channels_from_message(message: Message, mode: Modes, category_name='', ) -> AddChannelsResult:
@@ -179,14 +181,13 @@ async def add_channels_from_message(message: Message, mode: Modes, category_name
         elif mode == Modes.CATEGORIES:
             category_id = await get_category_id(category_name)
             result = await create_category_channel(channel_tg_id, channel_username, category_id)
-
             if result:
                 to_parse.append(channel_username)
         elif mode == Modes.PERSONAL:
-            result = await create_personal_channel(channel_tg_id, channel_username)
-            if result == errors.DUPLICATE_ENTRY_ERROR:
+            r = await create_personal_channel(channel_tg_id, channel_username)
+            if r == errors.DUPLICATE_ENTRY_ERROR:
                 result = await create_user_channel(user_tg_id, channel_tg_id)
-            elif result:
+            elif r:
                 result = await create_user_channel(user_tg_id, channel_tg_id)
                 to_parse.append(channel_username)
 
@@ -200,23 +201,22 @@ async def add_channels_from_message(message: Message, mode: Modes, category_name
     answer = ''
 
     if mode == Modes.CATEGORIES and added:
-        answer += answers.CHANNELS_ADDED_WITH_CATEGORY_MESSAGE.format(category=category_name) + ', '.join(added)
+        answer += f'Были добавлены каналы с категорией `<code>{category_name}</code>`:\n{", ".join(added)}'
     elif (mode == Modes.PERSONAL or mode == Modes.RECOMMENDATIONS) and added:
-        answer += answers.CHANNELS_ADDED_MESSAGE + ', '.join(added)
+        answer += f'Были добавлены каналы:\n{", ".join(added)}\n'
 
     if not_added:
-        answer += answers.CHANNELS_NOT_ADDED_MESSAGE + ', '.join(not_added)
+        answer += f'Не удалось добавить каналы:\n{", ".join(not_added)}\n'
     if already_added:
-        answer += answers.CHANNELS_ALREADY_ADDED_MESSAGE + ', '.join(already_added)
-
+        answer += f'Каналы уже были добавлены ранее:\n{", ".join(already_added)}\n'
     return AddChannelsResult(answer, to_parse)
 
 
-def create_categories_buttons(categories):
-    categories_buttons = []
-    for category in categories:
-        categories_buttons.append(KeyboardButton(text=category))
-    return categories_buttons
+def create_buttons(texts: list[str]):
+    buttons = []
+    for category in texts:
+        buttons.append(KeyboardButton(text=category))
+    return buttons
 
 
 def build_menu(buttons: list[KeyboardButton], n_cols: int = 2, header_buttons: list = None, footer_buttons: list = None) -> ReplyKeyboardMarkup:
@@ -225,7 +225,7 @@ def build_menu(buttons: list[KeyboardButton], n_cols: int = 2, header_buttons: l
         menu.insert(0, header_buttons)
     if footer_buttons:
         menu.append(footer_buttons)
-    return ReplyKeyboardMarkup(menu)
+    return ReplyKeyboardMarkup(menu, resize_keyboard=True)
 
 
 def create_reactions_keyboard(likes: int, dislikes: int, post_type: PostTypes, post_id: int):
@@ -261,3 +261,47 @@ def clean_channel_id(channel_id: int) -> int:
 async def reset_and_switch_state(state: FSMContext, switch_to: State()):
     await state.reset_state()
     await state.set_state(switch_to)
+
+
+async def download_media(client: Client, message: Message) -> str | None:
+    file_path = None
+    channel_username = message.chat.username
+    if message.photo:
+        file_path = f'media/{channel_username}/media_image_{message.chat.id}_{message.photo.file_unique_id}.jpg'
+        await client.download_media(message, file_path)
+    elif message.video:
+        file_path = f'media/{channel_username}/media_video_{message.chat.id}_{message.video.file_id}.mp4'
+        await client.download_media(message, file_path)
+    return file_path
+
+
+async def download_media_group(client: Client, message: Message) -> str | None:
+    if not message.media_group_id:
+        return None
+
+    channel_name = message.chat.username
+    media_group_id = message.media_group_id
+    media_group = await message.get_media_group()
+    media_group_folder_path = f'media/{channel_name}/{media_group_id}'
+    if os.path.exists(media_group_folder_path):
+        return media_group_folder_path
+
+    os.makedirs(media_group_folder_path, exist_ok=True)
+    for media_message in media_group:
+        if media_message.photo:
+            file_id = media_message.photo.file_id
+            file_path = f'{media_group_folder_path}/{file_id}.jpg'
+            await client.download_media(media_message, file_name=file_path)
+        elif media_message.video:
+            file_id = media_message.video.file_id
+            file_path = f'{media_group_folder_path}/{file_id}.mp4'
+            await client.download_media(media_message, file_name=file_path)
+
+    return media_group_folder_path
+
+
+def compress_image(filename):
+    image = Image.open(filename)
+    compressed_filename = f'{filename}'
+    image.save(compressed_filename, optimize=True, quality=30)
+    return compressed_filename

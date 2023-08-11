@@ -1,22 +1,16 @@
 import asyncio
 import pickle
-
 from pyrogram import Client
-from PIL import Image
 from config import config
-from config.logging_config import logger
 from pyrogram.types import Message
-from pyrogram import filters
+
 from create_bot import bot_client
 from database.queries.get_queries import *
-import os
-
-from utils.custom_types import Modes, ParseData
-
-MEDIA_GROUP_PATH = 'media/{channel_name}/{media_group_id}'
+from utils.custom_types import Modes, Post
+from utils.helpers import download_media_group, download_media
 
 
-async def parse(channel_username: str, chat_id: int, mode: Modes, limit=15) -> list[ParseData]:
+async def parse(channel_username: str, chat_id: int, mode: Modes, limit=config.POSTS_AMOUNT_LIMIT) -> list[Post]:
     async with Client('user_session', config.API_ID, config.API_HASH, phone_number=config.PHONE_NUMBER) as user_client:
         channel_username = channel_username.replace('@', '')
         if mode == Modes.RECOMMENDATIONS:
@@ -54,13 +48,10 @@ async def parse(channel_username: str, chat_id: int, mode: Modes, limit=15) -> l
             for message in messages:
                 if message.media_group_id:
                     task = asyncio.create_task(
-                        download_media_group(user_client, message, channel_username.replace('@', '')))
-                    tasks.append(task)
-                elif message.media:
-                    task = asyncio.create_task(download_media(user_client, message, channel_username.replace('@', '')))
+                        download_media_group(user_client, message))
                     tasks.append(task)
                 else:
-                    task = asyncio.create_task(download_media(user_client, message, channel_username.replace('@', '')))
+                    task = asyncio.create_task(download_media(user_client, message))
                     tasks.append(task)
 
             media_paths = await asyncio.gather(*tasks)
@@ -70,49 +61,9 @@ async def parse(channel_username: str, chat_id: int, mode: Modes, limit=15) -> l
                 if message.media_group_id:
                     media_group = await message.get_media_group()
                     message_text = media_group[0].caption
-                data.append(ParseData(message.id, message_text, message_media_path, channel_username, channel_id, message_entities, chat_id))
+                data.append(Post(channel_id, channel_username, message_text, message_entities, message_media_path))
+
+            await user_client.send_message('me', channel_username)
             return data
         except Exception as err:
             logger.error(f'Ошибка при парсинге сообщений канала {channel_username}: {err}')
-
-
-async def download_media(user_client, message: Message, channel_username: str) -> str | None:
-    file_path = None
-    if message.photo:
-        file_path = f'media/{channel_username}/media_image_{message.chat.id}_{message.photo.file_unique_id}.jpg'
-        await user_client.download_media(message, file_path)
-    elif message.video:
-        file_path = f'media/{channel_username}/media_video_{message.chat.id}_{message.video.file_id}.mp4'
-        await user_client.download_media(message, file_path)
-    return file_path
-
-
-async def download_media_group(user_client, message: Message, channel_name: str) -> str | None:
-    if not message.media_group_id:
-        return None
-
-    media_group_id = message.media_group_id
-    media_group = await message.get_media_group()
-    media_group_folder_path = MEDIA_GROUP_PATH.format(channel_name=channel_name, media_group_id=media_group_id)
-    if os.path.exists(media_group_folder_path):
-        return media_group_folder_path
-
-    os.makedirs(media_group_folder_path, exist_ok=True)
-    for media_message in media_group:
-        if media_message.photo:
-            file_id = media_message.photo.file_id
-            file_path = f'{media_group_folder_path}/{file_id}.jpg'
-            await user_client.download_media(media_message, file_name=file_path)
-        elif media_message.video:
-            file_id = media_message.video.file_id
-            file_path = f'{media_group_folder_path}/{file_id}.mp4'
-            await user_client.download_media(media_message, file_name=file_path)
-
-    return media_group_folder_path
-
-
-def compress_image(filename):
-    image = Image.open(filename)
-    compressed_filename = f'{filename}'
-    image.save(compressed_filename, optimize=True, quality=30)
-    return compressed_filename

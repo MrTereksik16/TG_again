@@ -1,7 +1,7 @@
-from sqlalchemy import select
 from config.logging_config import logger
 from database.create_db import Session
-from database.models import PersonalChannel, UserChannel, UserCategory, PersonalPost, PremiumChannel, Category
+from database.models import PersonalChannel, UserChannel, UserCategory, PersonalPost, PremiumChannel, Category, PremiumPost, CategoryPost, \
+    CategoryChannel
 
 
 async def delete_personal_channel(user_tg_id, channel_username) -> bool:
@@ -55,6 +55,81 @@ async def delete_category(category_name: str) -> bool:
         return True
     except Exception as err:
         logger.error(f'Ошибка при удалении категории: {err}')
+        return False
+    finally:
+        session.close()
+
+
+async def delete_category_channel(channel_username: str) -> bool:
+    session = Session()
+    try:
+        result = session.query(CategoryChannel).filter(CategoryChannel.username == channel_username).delete()
+        session.commit()
+        if not result:
+            return False
+
+        return True
+    except Exception as err:
+        logger.error(f'Ошибка при удалении канала из категорий: {err}')
+        return False
+    finally:
+        session.close()
+
+
+async def delete_first_personal_channel_post(channel_id: int):
+    session = Session()
+    try:
+        post = session \
+            .query(PersonalPost) \
+            .join(PersonalChannel, PersonalPost.personal_channel_id == PersonalChannel.id) \
+            .filter(PersonalChannel.id == channel_id) \
+            .first()
+
+        session.query(PersonalPost).filter(PersonalPost.id == post.id).delete()
+        session.commit()
+        return True
+    except Exception as err:
+        logger.error(f'Ошибка при удалении первого поста в персональном канале: {err}')
+        return False
+    finally:
+        session.close()
+
+
+async def delete_first_premium_channel_post(channel_id: int):
+    session = Session()
+    try:
+        post = session \
+            .query(PremiumPost) \
+            .join(PremiumChannel, PremiumPost.premium_channel_id == PremiumChannel.id) \
+            .filter(PersonalChannel.id == channel_id) \
+            .first() \
+            .delete()
+
+        session.query(PremiumPost).filter(PremiumPost.id == post.id).delete()
+        session.commit()
+        return True
+    except Exception as err:
+        logger.error(f'Ошибка при удалении первого поста в премиальном канале: {err}')
+        return False
+    finally:
+        session.close()
+
+
+async def delete_first_category_channel_post(channel_id: int):
+    session = Session()
+    try:
+        post = session \
+            .query(CategoryPost) \
+            .join(CategoryChannel, CategoryPost.category_channel_id == CategoryChannel.id) \
+            .filter(CategoryChannel.id == channel_id) \
+            .first() \
+            .delete()
+
+        session.query(CategoryPost).filter(CategoryPost.id == post.id).delete()
+        session.commit()
+        return True
+    except Exception as err:
+        logger.error(f'Ошибка при удалении первого поста из канала в категориях: {err}')
         return False
     finally:
         session.close()

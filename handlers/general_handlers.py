@@ -59,7 +59,6 @@ async def on_like_button_click(callback: CallbackQuery):
 
     elif post_type == PostTypes.PERSONAL:
         mark_type = await get_viewed_personal_post_mark_type(post_id)
-        print(mark_type)
         if mark_type == MarkTypes.DISLIKE or mark_type == MarkTypes.NEUTRAL:
             await update_viewed_personal_post_mark_type(user_tg_id, post_id, MarkTypes.LIKE)
             await update_personal_post_likes(post_id)

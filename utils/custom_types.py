@@ -1,5 +1,6 @@
 from pyrogram.types import MessageEntity
 
+
 class Modes:
     RECOMMENDATIONS = 'recommendations'
     PERSONAL = 'personal'
@@ -11,7 +12,7 @@ class PostTypes:
     PERSONAL = 'personal'
     CATEGORY = 'category'
 
-    def __new__(cls, value: str) -> str:
+    def __new__(cls, value: str):
         if value == cls.PREMIUM:
             return cls.PREMIUM
         if value == cls.PERSONAL:
@@ -43,30 +44,23 @@ class AddChannelsResult:
         self.to_parse = to_parse
 
 
-class ParseData:
-    chat_id = None
-    message_id = None
-    message_text = None
-    message_media_path = None
-    message_entities = None
+class Post:
     channel_id = None
+    message_text = None
+    message_entities = None
+    message_media_path = None
     channel_username = None
 
     def __init__(
             self,
-            message_id: int,
-            message_text: str,
-            message_media_path: str,
-            channel_username: str,
             channel_id: int,
-            message_entities: bytes,
-            chat_id: int
+            channel_username: str,
+            message_text: str | None,
+            message_entities: bytes | None,
+            message_media_path: str | None,
     ):
-        self.message_id = message_id
-        self.chat_id = chat_id
-        self.message_text = message_text
-        self.message_media_path = message_media_path
-        self.message_entities = message_entities
         self.channel_id = channel_id
+        self.message_text = message_text
+        self.message_entities = message_entities
+        self.message_media_path = message_media_path
         self.channel_username = channel_username
-
