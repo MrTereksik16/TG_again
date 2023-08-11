@@ -68,7 +68,7 @@ async def on_personal_channels_message(message: Message, state: FSMContext):
         else:
             result = await create_personal_posts(posts)
             if result:
-                await bot_client.send_message(chat_id, f'Посты с канала {channel_username} получены 👍', reply_markup=keyboard)
+                await bot_client.send_message(chat_id, f'Посты с канала @{channel_username} получены 👍', reply_markup=keyboard)
             else:
                 await bot_client.send_message(chat_id, f'Не удалось получить посты с канала {channel_username}', reply_markup=keyboard)
 
@@ -83,7 +83,7 @@ async def on_list_channels_message(message: Message):
     else:
         for channel in channels:
             channels_usernames.append(f'@{channel}')
-        await message.answer('Список ваших каналов' + ', '.join(channels_usernames),
+        await message.answer(f'Список ваших каналов:\n{", ".join(channels_usernames)}',
                              reply_markup=personal_reply_keyboards.personal_start_control_keyboard)
 
 

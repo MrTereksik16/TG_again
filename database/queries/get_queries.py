@@ -349,3 +349,24 @@ async def get_category_id(category_name) -> int | None:
     finally:
         session.close()
         return category_id
+
+
+async def get_all_channels_ids():
+    session = Session()
+    channels_ids = []
+    try:
+        query = '''
+            select id from premium_channel
+            union select id from category_channel
+            union select id from personal_channel
+        '''
+        channels = session.execute(text(query))
+
+        for channel_id in channels:
+            channels_ids.append(channel_id.id)
+
+    except Exception as err:
+        logger.error(f'Ошибка при получении id всех каналов: {err}')
+    finally:
+        session.close()
+        return channels_ids

@@ -162,11 +162,14 @@ async def add_channels_from_message(message: Message, mode: Modes, category_name
     for link in links:
         try:
             if not match(r'^@[a-zA-Z0-9_]+', link):
-                link = sub(r'https://t.me/(\w+)', r'\1', link)
-            channel_entity = await bot_client.get_chat(link)
+                tg_link = sub(r'https://t.me/(\w+)', r'\1', link)
+                channel_entity = await bot_client.get_chat(tg_link)
+            else:
+                channel_entity = await bot_client.get_chat(link)
+
         except Exception as err:
             logger.error(f'Ошибка при получении сущности чата: {err}')
-            not_added.append(f'@{link.split("/")[-1].split("?")[0].replace("@", "")}')
+            not_added.append(link)
             continue
 
         channel_username = channel_entity.username
