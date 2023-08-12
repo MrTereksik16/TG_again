@@ -217,7 +217,7 @@ async def get_best_categories_posts(user_tg_id) -> list:
                        username,
                        name,
                        emoji,
-                       row_number() over (partition by category_channel_id order by likes desc ) as row_num
+                       row_number() over (partition by category_channel_id order by likes >= dislikes desc) as row_num
                 from category_post posts
                 join category_channel cc on posts.category_channel_id = cc.id
                 join category c on cc.category_id = c.id
