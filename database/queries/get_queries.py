@@ -221,8 +221,6 @@ async def get_best_categories_posts(user_tg_id) -> list:
                 from category_post posts
                 join category_channel cc on posts.category_channel_id = cc.id
                 join category c on cc.category_id = c.id
-                join user_category uc on cc.category_id = uc.category_id and uc.user_id = {user_tg_id}
-                left join user_viewed_category_post uvcp on posts.id = uvcp.category_post_id
             ) subquery
             where row_num = 1
         '''
