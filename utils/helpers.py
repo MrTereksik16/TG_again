@@ -1,6 +1,7 @@
 import os
 import pickle
 import random
+import shutil
 from re import match, sub
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State
@@ -11,6 +12,8 @@ from config.config import ADMINS
 from create_bot import bot_client
 from database.queries.create_queries import *
 from database.queries.get_queries import *
+from database.queries.update_queries import update_user_viewed_premium_posts_counters, update_user_viewed_category_posts_counters, \
+    update_user_viewed_premium_post_counter, update_user_viewed_category_post_counter
 from utils.consts import answers, errors
 from keyboards import personal_reply_keyboards, recommendations_reply_keyboards, categories_reply_keyboards, \
     general_inline_buttons_texts
@@ -27,42 +30,90 @@ def convert_list_of_items_to_string(items: list, code: bool = True) -> str:
         return '\n' + ''.join([f'{i}.  {value}\n' for i, value in enumerate(items, start=1)])
 
 
-async def send_next_post(user_tg_id: int, chat_id: int, mode: Modes, post=None):
-    if not post:
-        post = await get_next_post(user_tg_id, mode)
-        if not post:
-            return errors.NO_POST
+async def get_next_post(user_tg_id: int, mode: Modes):
+    next_post = None
 
-    entities = pickle.loads(post.entities)
-    text = post.text if post.text is not None else ''
-    media_path = post.image_path
-    channel_username = post.username
-    likes = post.likes
-    dislikes = post.dislikes
+    if mode == Modes.PERSONAL:
+        posts = await get_user_personal_posts(user_tg_id)
+        next_post = choose_post(posts)
+    elif mode == Modes.CATEGORIES:
+        posts = await get_best_not_viewed_categories_posts(user_tg_id)
+        next_post = choose_post(posts)
+    elif mode == Modes.RECOMMENDATIONS:
+        await update_user_viewed_premium_posts_counters(user_tg_id)
+        await update_user_viewed_category_posts_counters(user_tg_id)
 
+        posts = []
+        premium_best_posts = await get_premium_posts(user_tg_id)
+        categories_best_posts = await get_best_categories_posts(user_tg_id)
+
+        for post in premium_best_posts:
+            posts.append(post)
+
+        for post in categories_best_posts:
+            posts.append(post)
+        next_post = choose_post(posts)
+
+    return next_post
+
+
+def choose_post(posts: list):
+    if not posts:
+        return None
+
+    total_weight = sum(post.coefficient for post in posts)
+    random_num = random.randint(0, total_weight)
+
+    for post in posts:
+        random_num -= post.coefficient
+        if random_num <= 0:
+            return post
+
+    return posts[0]
+
+
+async def send_next_post(user_tg_id: int, chat_id: int, mode: Modes, next_post=None):
+    if not next_post:
+        next_post = await get_next_post(user_tg_id, mode)
+        if not next_post:
+            return False
+
+    entities = pickle.loads(next_post.entities)
+    text = next_post.text
+    media_path = next_post.media_path
+    channel_username = next_post.username
+    likes = next_post.likes
+    dislikes = next_post.dislikes
+    post_id = next_post.id
     message_text = f'{text}\n{answers.POST_FROM_CHANNEL_MESSAGE_TEXT.format(channel_username=channel_username)}'
 
     if mode == Modes.CATEGORIES:
-        category = post.name + post.emoji
+        category = next_post.name + next_post.emoji
         message_text += f'\nКатегория: `{category}`'
 
     keyboard = ReplyKeyboardRemove()
 
     if mode == Modes.RECOMMENDATIONS:
-        if hasattr(post, 'premium_channel_id'):
-            await create_user_viewed_premium_post(user_tg_id, post.id)
-            keyboard = create_reactions_keyboard(likes, dislikes, PostTypes.PREMIUM, post.id)
-        elif hasattr(post, 'category_channel_id'):
-            await create_user_viewed_category_post(user_tg_id, post.id)
-            keyboard = create_reactions_keyboard(likes, dislikes, PostTypes.CATEGORY, post.id)
+        if hasattr(next_post, 'premium_channel_id'):
+            result = await create_user_viewed_premium_post(user_tg_id, post_id)
+            if result == errors.DUPLICATE_ERROR_TEXT:
+                await update_user_viewed_premium_post_counter(user_tg_id, post_id)
+
+            keyboard = create_reactions_keyboard(likes, dislikes, PostTypes.PREMIUM, post_id)
+        elif hasattr(next_post, 'category_channel_id'):
+            result = await create_user_viewed_category_post(user_tg_id, post_id)
+            if result == errors.DUPLICATE_ERROR_TEXT:
+                await update_user_viewed_category_post_counter(user_tg_id, post_id)
+
+            keyboard = create_reactions_keyboard(likes, dislikes, PostTypes.CATEGORY, post_id)
 
     elif mode == Modes.CATEGORIES:
-        await create_user_viewed_category_post(user_tg_id, post.id)
-        keyboard = create_reactions_keyboard(likes, dislikes, PostTypes.CATEGORY, post.id)
+        await create_user_viewed_category_post(user_tg_id, post_id)
+        keyboard = create_reactions_keyboard(likes, dislikes, PostTypes.CATEGORY, post_id)
 
     elif mode == Modes.PERSONAL:
-        await create_user_viewed_personal_post(user_tg_id, post.id)
-        keyboard = create_reactions_keyboard(likes, dislikes, PostTypes.PERSONAL, post.id)
+        await create_user_viewed_personal_post(user_tg_id, post_id)
+        keyboard = create_reactions_keyboard(likes, dislikes, PostTypes.PERSONAL, post_id)
 
     try:
         if not media_path:
@@ -88,48 +139,11 @@ async def send_next_post(user_tg_id: int, chat_id: int, mode: Modes, post=None):
                         media_group.append(InputMediaVideo(path))
                 msg = await bot_client.send_media_group(chat_id, media_group)
                 await bot_client.send_message(chat_id, message_text, entities=entities, reply_markup=keyboard, reply_to_message_id=msg[0].id)
+        return True
     except Exception as err:
         await bot_client.send_message(chat_id, 'Упс. Не получилось получить этот пост 😬', reply_markup=keyboard)
         logger.error(f'Ошибка при отправлении поста пользователю: {err}')
-
-
-async def get_next_post(user_tg_id: int, mode: Modes):
-    next_post = None
-
-    if mode == Modes.PERSONAL:
-        posts = await get_user_personal_posts(user_tg_id)
-        next_post = choose_post(posts)
-    elif mode == Modes.CATEGORIES:
-        posts = await get_best_not_viewed_categories_posts(user_tg_id)
-        next_post = choose_post(posts)
-    elif mode == Modes.RECOMMENDATIONS:
-        posts = []
-        premium_best_posts = await get_premium_posts(user_tg_id)
-        categories_best_posts = await get_best_categories_posts(user_tg_id)
-
-        for post in premium_best_posts:
-            posts.append(post)
-
-        for post in categories_best_posts:
-            posts.append(post)
-        next_post = choose_post(posts)
-
-    return next_post
-
-
-def choose_post(posts: list):
-    if not posts:
-        return None
-
-    total_weight = sum(post.coefficient for post in posts)
-    random_num = random.uniform(0, total_weight)
-
-    for post in posts:
-        random_num -= post.coefficient
-        if random_num <= 0:
-            return post
-
-    return posts[0]
+        return False
 
 
 async def send_end_message(user_tg_id, chat_id, mode: Modes):
@@ -152,8 +166,8 @@ async def send_end_message(user_tg_id, chat_id, mode: Modes):
     await bot_client.send_message(chat_id, answers.POSTS_OVER, reply_markup=no_post_keyboard)
 
 
-async def add_channels(channels_string: str, user_tg_id: int, mode: Modes, category_name='', coefficient: int = 1) -> AddChannelsResult:
-    links = [link.strip() for link in channels_string.split(',') if link.strip()]
+async def add_channels(channels: str, user_tg_id: int, mode: Modes, category_name='', coefficient: int = 1) -> AddChannelsResult:
+    links = [link.strip() for link in channels.split(',') if link.strip()]
     to_parse = []
     added = []
     not_added = []
@@ -177,7 +191,7 @@ async def add_channels(channels_string: str, user_tg_id: int, mode: Modes, categ
         result = None
 
         if mode == Modes.RECOMMENDATIONS:
-            result = await create_recommendation_channel(channel_tg_id, channel_username, coefficient)
+            result = await create_premium_channel(channel_tg_id, channel_username, coefficient)
             if result:
                 to_parse.append(channel_username)
         elif mode == Modes.CATEGORIES:
@@ -187,13 +201,13 @@ async def add_channels(channels_string: str, user_tg_id: int, mode: Modes, categ
                 to_parse.append(channel_username)
         elif mode == Modes.PERSONAL:
             r = await create_personal_channel(channel_tg_id, channel_username, coefficient)
-            if r == errors.DUPLICATE_ENTRY_ERROR:
+            if r == errors.DUPLICATE_ERROR_TEXT:
                 result = await create_user_channel(user_tg_id, channel_tg_id)
             elif r:
                 result = await create_user_channel(user_tg_id, channel_tg_id)
                 to_parse.append(channel_username)
 
-        if result == errors.DUPLICATE_ENTRY_ERROR:
+        if result == errors.DUPLICATE_ERROR_TEXT:
             already_added.append(f'@{channel_username}')
         elif result:
             added.append(f'@{channel_username}')
@@ -221,7 +235,8 @@ def create_buttons(texts: list[str]):
     return buttons
 
 
-def create_menu(buttons: list[KeyboardButton], n_cols: int = 2, header_buttons: list[KeyboardButton] | KeyboardButton = None, footer_buttons: list = None) -> ReplyKeyboardMarkup:
+def create_menu(buttons: list[KeyboardButton], n_cols: int = 2, header_buttons: list[KeyboardButton] | KeyboardButton = None,
+                footer_buttons: list = None) -> ReplyKeyboardMarkup:
     menu = [buttons[i:i + n_cols] for i in range(0, len(buttons), n_cols)]
     if header_buttons:
         if not isinstance(header_buttons, list):
@@ -309,3 +324,15 @@ def compress_image(filename):
     compressed_filename = f'{filename}'
     image.save(compressed_filename, optimize=True, quality=30)
     return compressed_filename
+
+
+def remove_file_or_folder(path):
+    if os.path.isfile(path):
+        os.remove(path)
+    elif os.path.isdir(path):
+        try:
+            os.rmdir(path)
+        except OSError:
+            shutil.rmtree(path)
+    else:
+        print("Path not found")

@@ -30,6 +30,18 @@ async def get_personal_channel(channel_username: str) -> PersonalChannel:
         return channel
 
 
+async def get_personal_channel_post(post_id: int) -> PersonalPost:
+    session = Session()
+    channel = None
+    try:
+        channel = session.query(PersonalPost).filter(PersonalPost.id == post_id).one()
+    except Exception as err:
+        logger.error(f'Ошибка при получении поста из персонального канала: {err}')
+    finally:
+        session.close()
+        return channel
+
+
 async def get_user_channels_usernames(user_tg_id: int) -> list[str]:
     session = Session()
     channels = []
@@ -53,7 +65,19 @@ async def get_premium_channel(channel_username: str) -> PremiumChannel:
         channel = session.query(PremiumChannel).filter(
             PremiumChannel.username == channel_username).one()
     except Exception as err:
-        logger.error(f'Ошибка при получении общего канала канала: {err}')
+        logger.error(f'Ошибка при получении премиального канала канала: {err}')
+    finally:
+        session.close()
+        return channel
+
+
+async def get_premium_channel_post(post_id: int) -> PremiumPost:
+    session = Session()
+    channel = None
+    try:
+        channel = session.query(PremiumPost).filter(PremiumPost.id == post_id).one()
+    except Exception as err:
+        logger.error(f'Ошибка при получении поста из премиального канала: {err}')
     finally:
         session.close()
         return channel
@@ -64,6 +88,18 @@ async def get_category_channel(channel_username: str) -> CategoryChannel:
     channel = None
     try:
         channel = session.query(CategoryChannel).filter(CategoryChannel.username == channel_username).one()
+    except Exception as err:
+        logger.error(f'Ошибка при получении канала из категорий: {err}')
+    finally:
+        session.close()
+        return channel
+
+
+async def get_category_channel_post(post_id: int) -> CategoryPost:
+    session = Session()
+    channel = None
+    try:
+        channel = session.query(CategoryPost).filter(CategoryPost.id == post_id).one()
     except Exception as err:
         logger.error(f'Ошибка при получении канала из категорий: {err}')
     finally:
@@ -113,7 +149,7 @@ async def get_personal_channel_posts(channel_id: int):
         return posts
 
 
-async def get_premium_channel_posts(channel_id: int):
+async def get_all_premium_channel_posts(channel_id: int):
     session = Session()
     posts = []
     try:
@@ -125,7 +161,7 @@ async def get_premium_channel_posts(channel_id: int):
         for record in records:
             posts.append(record)
     except Exception as err:
-        logger.error(f'Ошибка при получении постов из премиального канала: {err}')
+        logger.error(f'Ошибка при получении всех постов из премиального канала: {err}')
     finally:
         session.close()
         return posts
@@ -179,12 +215,7 @@ async def get_best_not_viewed_categories_posts(user_tg_id) -> list:
         query = f'''
             select *
             from (
-                select posts.*,
-                       coefficient,
-                       username,
-                       name,
-                       emoji,
-                       row_number() over (partition by category_channel_id order by likes desc ) as row_num
+                select posts.*, coefficient, username, name, emoji, row_number() over (partition by category_channel_id order by likes desc ) as row_num
                 from category_post posts
                 join category_channel cc on posts.category_channel_id = cc.id
                 join category c on cc.category_id = c.id
@@ -210,19 +241,14 @@ async def get_best_categories_posts(user_tg_id) -> list:
     posts = []
     try:
         query = f'''
-            select *
-            from (
-                select posts.*,
-                       coefficient,
-                       username,
-                       name,
-                       emoji,
-                       row_number() over (partition by category_channel_id order by likes >= dislikes desc) as row_num
-                from category_post posts
-                join category_channel cc on posts.category_channel_id = cc.id
-                join category c on cc.category_id = c.id
-            ) subquery
-            where row_num = 1
+        select *
+        from (select posts.*, coefficient, user_id, counter, username, name, emoji, row_number() over (partition by category_channel_id order by likes desc, dislikes) as row_num
+            from category_post posts
+            join category_channel cc on posts.category_channel_id = cc.id
+            join category c on cc.category_id = c.id
+            left join user_viewed_category_post uvcp on posts.id = uvcp.category_post_id and uvcp.user_id = {user_tg_id}
+            where counter is NULL or counter = 0
+        ) subquery where likes >= dislikes and (row_num = 1 or likes = (select MAX(likes) from category_post))
         '''
 
         records = session.execute(text(query))

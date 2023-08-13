@@ -4,7 +4,7 @@ from aiogram.dispatcher.filters import Text
 from aiogram.types import Message, ReplyKeyboardRemove
 from pyrogram.types import InlineKeyboardMarkup, CallbackQuery, InlineKeyboardButton
 from create_bot import bot_client
-from utils.consts import answers, errors
+from utils.consts import answers
 from parse import parse
 import callbacks
 from database.queries.create_queries import create_personal_posts
@@ -13,9 +13,10 @@ from database.queries.get_queries import get_user_channels_usernames
 from keyboards import personal_inline_keyboards
 from keyboards import personal_reply_keyboards
 from store.states import PersonalStates
-from utils.helpers import add_channels, get_next_post, send_next_post, send_end_message, reset_and_switch_state
+from utils.helpers import add_channels, get_next_post, send_next_post, send_end_message, reset_and_switch_state, remove_file_or_folder
 from keyboards import personal_reply_buttons_texts, general_reply_buttons_texts, general_reply_keyboards
 from utils.custom_types import Modes
+from config.config import MEDIA_DIR
 
 
 async def on_personal_feed_message(message: Message, state: FSMContext):
@@ -49,15 +50,17 @@ async def on_personal_channels_message(message: Message, state: FSMContext):
 
     keyboard = personal_reply_keyboards.personal_start_control_keyboard
     chat_id = message.chat.id
+    user_tg_id = message.from_user.id
     mode = Modes.PERSONAL
-    result = await add_channels(message, mode=mode)
+    channels = message.text
+    result = await add_channels(channels, user_tg_id, mode=mode)
 
     answer = result.answer
     to_parse = result.to_parse
 
     await reset_and_switch_state(state, PersonalStates.PERSONAL_FEED)
 
-    if to_parse:
+    if not to_parse:
         return await message.answer(answer, reply_markup=keyboard)
     else:
         keyboard = ReplyKeyboardRemove()
@@ -120,6 +123,7 @@ async def on_delete_user_channel_inline_click(callback: CallbackQuery, state: FS
     result = await delete_personal_channel(user_tg_id, channel_username)
 
     if result:
+        remove_file_or_folder(MEDIA_DIR + channel_username)
         channels_usernames.remove(channel_username)
         await state.update_data(user_channels_usernames=channels_usernames)
         buttons = []
@@ -157,9 +161,9 @@ async def on_start_message(message: Message):
 async def on_skip_message(message: Message):
     user_tg_id = message.from_user.id
     chat_id = message.chat.id
-    err = await send_next_post(user_tg_id, chat_id, Modes.PERSONAL)
+    result = await send_next_post(user_tg_id, chat_id, Modes.PERSONAL)
 
-    if err == errors.NO_POST:
+    if not result:
         await send_end_message(user_tg_id, chat_id, Modes.PERSONAL)
 
 

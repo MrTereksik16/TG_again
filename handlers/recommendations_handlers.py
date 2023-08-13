@@ -63,9 +63,9 @@ async def on_start_message(message: Message):
 async def on_skip_message(message: Message):
     user_tg_id = message.from_user.id
     chat_id = message.chat.id
-    err = await send_next_post(user_tg_id, chat_id, Modes.RECOMMENDATIONS)
+    result = await send_next_post(user_tg_id, chat_id, Modes.RECOMMENDATIONS)
 
-    if err == errors.NO_POST:
+    if not result:
         await send_end_message(user_tg_id, chat_id, Modes.PERSONAL)
 
 

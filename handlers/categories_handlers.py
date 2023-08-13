@@ -72,7 +72,7 @@ async def on_category_message(message: Message, state: FSMContext):
 
     created = await create_user_category(user_tg_id, category_id)
 
-    if created == errors.DUPLICATE_ENTRY_ERROR:
+    if created == errors.DUPLICATE_ERROR_TEXT:
         deleted = await delete_user_category(user_tg_id, category_id)
         if deleted:
             await message.answer(
@@ -120,9 +120,9 @@ async def on_start_message(message: Message):
 async def on_skip_message(message: Message):
     user_tg_id = message.from_user.id
     chat_id = message.chat.id
-    err = await send_next_post(user_tg_id, chat_id, Modes.CATEGORIES)
+    result = await send_next_post(user_tg_id, chat_id, Modes.CATEGORIES)
 
-    if err == errors.NO_POST:
+    if not result:
         await send_end_message(user_tg_id, chat_id, Modes.CATEGORIES)
 
 

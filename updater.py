@@ -7,7 +7,7 @@ from pyrogram.types import Message
 
 from database.queries.delete_queries import delete_first_personal_channel_post, delete_first_premium_channel_post, delete_first_category_channel_post
 from database.queries.get_queries import get_premium_channel, get_category_channel, get_personal_channel, get_personal_channel_posts, \
-    get_premium_channel_posts, get_category_channel_posts, get_all_channels_ids
+    get_all_premium_channel_posts, get_category_channel_posts, get_all_channels_ids
 from database.queries.create_queries import create_premium_post, create_category_post, create_personal_post
 from utils.custom_types import Post
 
@@ -38,8 +38,7 @@ async def on_message(client: Client, message: Message):
 
 
 async def update_post(client: Client, message: Message):
-    from utils.helpers import download_media, download_media_group
-    from utils.helpers import clean_channel_id
+    from utils.helpers import download_media, download_media_group, clean_channel_id, remove_file_or_folder
 
     channel_username = message.chat.username
 
@@ -64,26 +63,31 @@ async def update_post(client: Client, message: Message):
     elif message.media:
         message_media_path = await download_media(client, message)
 
-    post = Post(channel_id, channel_username, message_text, message_entities, message_media_path)
+    new_post = Post(channel_id, channel_username, message_text, message_entities, message_media_path)
+    media_path = None
 
     if premium_channel:
-        posts = await get_premium_channel_posts(channel_id)
+        posts = await get_all_premium_channel_posts(channel_id)
         if len(posts) >= config.POSTS_AMOUNT_LIMIT:
-            await delete_first_premium_channel_post(channel_id)
-        await create_premium_post(post)
+            post = await delete_first_premium_channel_post(channel_id)
+            media_path = post.media_path
+        await create_premium_post(new_post)
     elif category_channel:
         posts = await get_category_channel_posts(channel_id)
         if len(posts) >= config.POSTS_AMOUNT_LIMIT:
-            await delete_first_category_channel_post(channel_id)
-        await create_category_post(post)
+            post = await delete_first_category_channel_post(channel_id)
+            media_path = post.media_path
+        await create_category_post(new_post)
 
     if personal_channel:
         posts = await get_personal_channel_posts(channel_id)
         if len(posts) >= config.POSTS_AMOUNT_LIMIT:
-            await delete_first_personal_channel_post(channel_id)
-        await create_personal_post(post)
+            post = await delete_first_personal_channel_post(channel_id)
+            media_path = post.media_path
+        await create_personal_post(new_post)
 
-
+    remove_file_or_folder(media_path)
+    
 app.add_handler(MessageHandler(on_message, filters.chat('me')))
 
 app.run()

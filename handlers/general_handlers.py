@@ -5,7 +5,8 @@ from aiogram.types import Message, CallbackQuery
 from config.config import ADMINS
 import callbacks
 from create_bot import bot_client
-from database.queries.get_queries import get_viewed_category_post_mark_type, get_viewed_personal_post_mark_type, get_viewed_premium_post_mark_type
+from database.queries.get_queries import get_viewed_category_post_mark_type, get_viewed_personal_post_mark_type, get_viewed_premium_post_mark_type, \
+    get_personal_channel_post, get_premium_channel_post, get_category_channel_post
 from database.queries.update_queries import update_viewed_premium_post_mark_type, update_premium_post_likes, update_premium_post_dislikes, \
     update_viewed_category_post_mark_type, update_category_post_likes, update_viewed_personal_post_mark_type, update_personal_post_likes, \
     update_personal_post_dislikes, update_category_post_dislikes
@@ -27,24 +28,44 @@ async def on_like_button_click(callback: CallbackQuery):
     callback_pieces = callback.data.split(':')
     post_type = PostTypes(callback_pieces[1])
     post_id = int(callback_pieces[2])
-    likes = int(callback_pieces[3])
-    dislikes = int(callback_pieces[4])
+    old_likes = int(callback_pieces[3])
+    old_dislikes = int(callback_pieces[4])
 
     chat_id = callback.message.chat.id
     message_id = callback.message.message_id
     user_tg_id = callback.from_user.id
 
     mark_type = MarkTypes.LIKE
+    post = None
+    new_likes = old_likes
+    new_dislikes = old_dislikes
+
+    if post_type == PostTypes.PREMIUM:
+        post = await get_premium_channel_post(post_id)
+        new_likes = post.likes
+        new_dislikes = post.dislikes
+    elif post_type == PostTypes.CATEGORY:
+        post = await get_category_channel_post(post_id)
+        new_likes = post.likes
+        new_dislikes = post.dislikes
+    elif post_type == PostTypes.PERSONAL:
+        post = await get_personal_channel_post(post_id)
+        new_likes = post.likes
+        new_dislikes = post.dislikes
+
+    if not post:
+        await callback.answer('Пост удалён')
+
     if post_type == PostTypes.PREMIUM:
         mark_type = await get_viewed_premium_post_mark_type(user_tg_id, post_id)
 
         if mark_type == MarkTypes.DISLIKE or mark_type == MarkTypes.NEUTRAL:
             await update_viewed_premium_post_mark_type(user_tg_id, post_id, MarkTypes.LIKE)
             await update_premium_post_likes(post_id)
-            likes += 1
+            new_likes += 1
         if mark_type == MarkTypes.DISLIKE:
             await update_premium_post_dislikes(post_id, increment=False)
-            dislikes -= 1
+            new_dislikes -= 1
 
     elif post_type == PostTypes.CATEGORY:
         mark_type = await get_viewed_category_post_mark_type(user_tg_id, post_id)
@@ -52,41 +73,66 @@ async def on_like_button_click(callback: CallbackQuery):
         if mark_type == MarkTypes.DISLIKE or mark_type == MarkTypes.NEUTRAL:
             await update_viewed_category_post_mark_type(user_tg_id, post_id, MarkTypes.LIKE)
             await update_category_post_likes(post_id)
-            likes += 1
+            new_likes += 1
         if mark_type == MarkTypes.DISLIKE:
             await update_category_post_dislikes(post_id, increment=False)
-            dislikes -= 1
+            new_dislikes -= 1
 
     elif post_type == PostTypes.PERSONAL:
         mark_type = await get_viewed_personal_post_mark_type(user_tg_id, post_id)
+
         if mark_type == MarkTypes.DISLIKE or mark_type == MarkTypes.NEUTRAL:
             await update_viewed_personal_post_mark_type(user_tg_id, post_id, MarkTypes.LIKE)
             await update_personal_post_likes(post_id)
-            likes += 1
+            new_likes += 1
         if mark_type == MarkTypes.DISLIKE:
             await update_personal_post_dislikes(post_id, increment=False)
-            dislikes -= 1
+            new_dislikes -= 1
+
+    keyboard = create_reactions_keyboard(new_likes, new_dislikes, post_type, post_id)
 
     if mark_type == MarkTypes.LIKE:
-        return await callback.answer('Вы можете лайкнуть пост единожды', show_alert=True)
+        if new_likes != old_likes:
+            await bot_client.edit_message_reply_markup(chat_id, message_id, reply_markup=keyboard)
+            return await callback.answer('Обновлено')
+        else:
+            return await callback.answer('Вы можете лайкнуть пост единожды')
 
-    keyboard = create_reactions_keyboard(likes, dislikes, post_type, post_id)
-    await callback.answer('Лайк')
     await bot_client.edit_message_reply_markup(chat_id, message_id, reply_markup=keyboard)
+    await callback.answer('Лайк')
 
 
 async def on_dislike_button_click(callback: CallbackQuery):
     callback_pieces = callback.data.split(':')
     post_type = PostTypes(callback_pieces[1])
     post_id = int(callback_pieces[2])
-    likes = int(callback_pieces[3])
-    dislikes = int(callback_pieces[4])
+    old_likes = int(callback_pieces[3])
+    old_dislikes = int(callback_pieces[4])
 
     chat_id = callback.message.chat.id
     message_id = callback.message.message_id
     user_tg_id = callback.from_user.id
 
     mark_type = None
+    post = None
+    new_likes = old_likes
+    new_dislikes = old_dislikes
+
+    if post_type == PostTypes.PREMIUM:
+        post = await get_premium_channel_post(post_id)
+        new_likes = post.likes
+        new_dislikes = post.dislikes
+    elif post_type == PostTypes.CATEGORY:
+        post = await get_category_channel_post(post_id)
+        new_likes = post.likes
+        new_dislikes = post.dislikes
+    elif post_type == PostTypes.PERSONAL:
+        post = await get_personal_channel_post(post_id)
+        new_likes = post.likes
+        new_dislikes = post.dislikes
+
+    if not post:
+        await callback.answer('Пост удалён')
 
     if post_type == PostTypes.PREMIUM:
         mark_type = await get_viewed_premium_post_mark_type(user_tg_id, post_id)
@@ -94,10 +140,10 @@ async def on_dislike_button_click(callback: CallbackQuery):
         if mark_type == MarkTypes.LIKE or mark_type == MarkTypes.NEUTRAL:
             await update_viewed_premium_post_mark_type(user_tg_id, post_id, MarkTypes.DISLIKE)
             await update_premium_post_dislikes(post_id)
-            dislikes += 1
+            new_dislikes += 1
         if mark_type == MarkTypes.LIKE:
             await update_premium_post_likes(post_id, increment=False)
-            likes -= 1
+            new_likes -= 1
 
     elif post_type == PostTypes.CATEGORY:
         mark_type = await get_viewed_category_post_mark_type(user_tg_id, post_id)
@@ -105,11 +151,11 @@ async def on_dislike_button_click(callback: CallbackQuery):
         if mark_type == MarkTypes.LIKE or mark_type == MarkTypes.NEUTRAL:
             await update_viewed_category_post_mark_type(user_tg_id, post_id, MarkTypes.DISLIKE)
             await update_category_post_dislikes(post_id)
-            dislikes += 1
+            new_dislikes += 1
 
         if mark_type == MarkTypes.LIKE:
             await update_category_post_likes(post_id, increment=False)
-            likes -= 1
+            new_likes -= 1
 
     elif post_type == PostTypes.PERSONAL:
         mark_type = await get_viewed_personal_post_mark_type(user_tg_id, post_id)
@@ -117,18 +163,23 @@ async def on_dislike_button_click(callback: CallbackQuery):
         if mark_type == MarkTypes.LIKE or mark_type == MarkTypes.NEUTRAL:
             await update_viewed_personal_post_mark_type(user_tg_id, post_id, MarkTypes.DISLIKE)
             await update_personal_post_dislikes(post_id)
-            dislikes += 1
+            new_dislikes += 1
 
         if mark_type == MarkTypes.LIKE:
             await update_personal_post_likes(post_id, increment=False)
-            likes -= 1
+            new_likes -= 1
+
+    keyboard = create_reactions_keyboard(new_likes, new_dislikes, post_type, post_id)
 
     if mark_type == MarkTypes.DISLIKE:
-        return await callback.answer('Вы можете дизлайкнуть пост единожды', show_alert=True)
+        if new_likes != old_likes:
+            await bot_client.edit_message_reply_markup(chat_id, message_id, reply_markup=keyboard)
+            return await callback.answer('Обновлено')
+        else:
+            return await callback.answer('Вы можете дизлайкнуть пост единожды')
 
-    keyboard = create_reactions_keyboard(likes, dislikes, post_type, post_id)
-    await callback.answer('Дизлайк')
     await bot_client.edit_message_reply_markup(chat_id, message_id, reply_markup=keyboard)
+    await callback.answer('Дизлайк')
 
 
 def register_generals_handlers(dp: Dispatcher):

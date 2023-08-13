@@ -131,3 +131,51 @@ async def update_category_post_dislikes(post_id, increment: bool = True):
         logger.error(f'Ошибка при обновлении типа реакции пользователя на пост из категорий: {err}')
     finally:
         session.close()
+
+
+async def update_user_viewed_premium_posts_counters(user_tg_id: int):
+    session = Session()
+    try:
+        query = f'update user_viewed_premium_post set counter = if(counter > 0, counter - 1, 0) where user_id = {user_tg_id}'
+        session.execute(text(query))
+        session.commit()
+    except Exception as err:
+        logger.error(f'Ошибка при обновлении счётчика просмотренного премиального поста: {err}')
+    finally:
+        session.close()
+
+
+async def update_user_viewed_category_posts_counters(user_tg_id: int):
+    session = Session()
+    try:
+        query = f'update user_viewed_category_post set counter = if(counter > 0, counter - 1, 0) where user_id = {user_tg_id}'
+        session.execute(text(query))
+        session.commit()
+    except Exception as err:
+        logger.error(f'Ошибка при обновлении счётчика просмотренного поста из категорий: {err}')
+    finally:
+        session.close()
+
+
+async def update_user_viewed_premium_post_counter(user_tg_id: int, post_id: int, counter_value: int = 15):
+    session = Session()
+    try:
+        query = f'update user_viewed_premium_post set counter = {counter_value} where user_id = {user_tg_id} and premium_post_id={post_id}'
+        session.execute(text(query))
+        session.commit()
+    except Exception as err:
+        logger.error(f'Ошибка при обновлении счётчика просмотренного поста из категорий: {err}')
+    finally:
+        session.close()
+
+
+async def update_user_viewed_category_post_counter(user_tg_id: int, post_id: int, counter_value: int = 15):
+    session = Session()
+    try:
+        query = f'update user_viewed_category_post set counter = {counter_value} where user_id = {user_tg_id} and category_post_id={post_id}'
+        session.execute(text(query))
+        session.commit()
+    except Exception as err:
+        logger.error(f'Ошибка при обновлении счётчика просмотренного поста из категорий: {err}')
+    finally:
+        session.close()
