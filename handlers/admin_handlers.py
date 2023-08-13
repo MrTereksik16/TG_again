@@ -12,9 +12,10 @@ from utils.consts import answers, errors
 from parse import parse
 from store.states import AdminPanelStates
 from utils.helpers import add_channels, create_buttons, convert_list_of_items_to_string, create_menu, \
-    reset_and_switch_state
+    reset_and_switch_state, remove_file_or_folder
 from keyboards import admin_reply_buttons_texts, admin_reply_keyboards, general_reply_keyboards, general_reply_buttons_texts, general_reply_buttons
 from utils.custom_types import Modes
+from config.config import MEDIA_DIR
 
 
 async def on_add_premium_channels_message(message: Message, state: FSMContext):
@@ -26,7 +27,7 @@ async def on_add_premium_channels_message(message: Message, state: FSMContext):
     await state.update_data(coefficients=coefficients)
     buttons = create_buttons(coefficients)
     keyboard = create_menu(buttons, n_cols=1, header_buttons=general_reply_buttons.cancel_button)
-    await message.answer('<b>Выберите коэффициент</b>\n\nОн влияет на частоту попадания постов из позже добавленных каналов в <b>рекомендации</b>',
+    await message.answer('<b>Выберите коэффициент</b>\n\nОн влияет на частоту попадания постов из каналов в <b>рекомендации</b>',
                          reply_markup=keyboard)
 
 
@@ -181,7 +182,7 @@ async def on_list_categories_channels_message(message: Message):
     if not categories_channels:
         return await message.answer('Список каналов из категорий пуст')
     else:
-        categories_channels = [f'@{channel.username} | <code>{channel.name}{channel.emoji}</code>' for channel in categories_channels]
+        categories_channels = [f'@{channel.username} | <code>{channel.name} {channel.emoji}</code>' for channel in categories_channels]
         answer = convert_list_of_items_to_string(categories_channels, code=False)
         await message.answer(answer)
 
@@ -214,7 +215,7 @@ async def on_add_category_emoji_message(message: Message, state: FSMContext):
     category_emoji = message.text
     result = await create_category(category_name, category_emoji)
 
-    if result == errors.DUPLICATE_ENTRY_ERROR:
+    if result == errors.DUPLICATE_ERROR_TEXT:
         await message.answer('Категория с таким названием уже есть', reply_markup=keyboard)
     elif result:
         await message.answer('Категория успешно добавлена!', reply_markup=keyboard)
@@ -290,6 +291,7 @@ async def on_delete_premium_channel_inline_click(callback: CallbackQuery, state:
     msg = context_data['delete_premium_channels_message']
     result = await delete_premium_channel(channel_username)
     if result:
+        remove_file_or_folder(MEDIA_DIR + channel_username)
         premium_channels.remove(channel)
         await state.update_data(premium_channels=premium_channels)
         buttons = []
@@ -333,6 +335,7 @@ async def on_category_channel_message(message: Message, state: FSMContext):
         channel_username = message.text.split(' | ')[0]
         result = await delete_category_channel(channel_username)
         if result:
+            remove_file_or_folder(MEDIA_DIR + channel_username)
             buttons_texts.remove(message.text)
             if not buttons_texts:
                 await reset_and_switch_state(state, AdminPanelStates.ADMIN_PANEL)

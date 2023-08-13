@@ -1,2 +1,1 @@
-DUPLICATE_ENTRY_ERROR = 'duplicate entry'
-NO_POST = 'no next post'
+DUPLICATE_ERROR_TEXT = 'Duplicate entry'

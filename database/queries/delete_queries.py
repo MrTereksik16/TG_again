@@ -63,7 +63,10 @@ async def delete_category(category_name: str) -> bool:
 async def delete_category_channel(channel_username: str) -> bool:
     session = Session()
     try:
-        result = session.query(CategoryChannel).filter(CategoryChannel.username == channel_username).delete()
+        result = session \
+            .query(CategoryChannel) \
+            .filter(CategoryChannel.username == channel_username) \
+            .delete()
         session.commit()
         if not result:
             return False
@@ -76,7 +79,7 @@ async def delete_category_channel(channel_username: str) -> bool:
         session.close()
 
 
-async def delete_first_personal_channel_post(channel_id: int):
+async def delete_first_personal_channel_post(channel_id: int) -> PersonalPost | None:
     session = Session()
     try:
         post = session \
@@ -85,17 +88,19 @@ async def delete_first_personal_channel_post(channel_id: int):
             .filter(PersonalChannel.id == channel_id) \
             .first()
 
-        session.query(PersonalPost).filter(PersonalPost.id == post.id).delete()
+        result = session.query(PersonalPost).filter(PersonalPost.id == post.id).delete()
         session.commit()
-        return True
+        if not result:
+            return None
+        return post
     except Exception as err:
         logger.error(f'Ошибка при удалении первого поста в персональном канале: {err}')
-        return False
+        return None
     finally:
         session.close()
 
 
-async def delete_first_premium_channel_post(channel_id: int):
+async def delete_first_premium_channel_post(channel_id: int) -> PremiumPost | None:
     session = Session()
     try:
         post = session \
@@ -105,17 +110,19 @@ async def delete_first_premium_channel_post(channel_id: int):
             .first() \
             .delete()
 
-        session.query(PremiumPost).filter(PremiumPost.id == post.id).delete()
+        result = session.query(PremiumPost).filter(PremiumPost.id == post.id).delete()
         session.commit()
-        return True
+        if not result:
+            return None
+        return post
     except Exception as err:
         logger.error(f'Ошибка при удалении первого поста в премиальном канале: {err}')
-        return False
+        return None
     finally:
         session.close()
 
 
-async def delete_first_category_channel_post(channel_id: int):
+async def delete_first_category_channel_post(channel_id: int) -> CategoryPost | None:
     session = Session()
     try:
         post = session \
@@ -125,11 +132,13 @@ async def delete_first_category_channel_post(channel_id: int):
             .first() \
             .delete()
 
-        session.query(CategoryPost).filter(CategoryPost.id == post.id).delete()
+        result = session.query(CategoryPost).filter(CategoryPost.id == post.id).delete()
         session.commit()
-        return True
+        if not result:
+            return None
+        return post
     except Exception as err:
         logger.error(f'Ошибка при удалении первого поста из канала в категориях: {err}')
-        return False
+        return None
     finally:
         session.close()
