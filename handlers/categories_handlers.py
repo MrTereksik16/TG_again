@@ -8,10 +8,10 @@ from database.queries.delete_queries import delete_user_category
 from database.queries.get_queries import get_user_categories, get_categories, get_category_id
 from keyboards import categories_reply_keyboards, general_reply_buttons, general_reply_buttons_texts, \
     categories_reply_buttons_texts
+from keyboards.general.helpers import build_reply_buttons, build_reply_keyboard
 from store.states import CategoriesStates
 from utils.consts import answers, errors
-from utils.helpers import convert_list_of_items_to_string, create_buttons, get_next_post, send_next_post, send_end_message, \
-    create_menu, reset_and_switch_state
+from utils.helpers import convert_list_of_items_to_string, get_next_post, send_next_post, send_end_message, reset_and_switch_state
 from utils.custom_types import Modes
 
 
@@ -33,8 +33,8 @@ async def on_add_or_delete_user_categories_message(message: Message, state: FSMC
     categories = await get_categories()
     user_categories = await get_user_categories(user_tg_id)
 
-    cat_buttons = create_buttons(categories)
-    keyboard = create_menu(cat_buttons, header_buttons=general_reply_buttons.close_button)
+    cat_buttons = build_reply_buttons(categories)
+    keyboard = build_reply_keyboard(cat_buttons, header_buttons=general_reply_buttons.close_button)
 
     answer = 'Наш список категорий, но он обязательно будет обновляться:'
     answer += convert_list_of_items_to_string(categories)
@@ -122,7 +122,7 @@ async def on_skip_message(message: Message):
     chat_id = message.chat.id
     result = await send_next_post(user_tg_id, chat_id, Modes.CATEGORIES)
 
-    if not result:
+    if result == errors.NO_POST:
         await send_end_message(user_tg_id, chat_id, Modes.CATEGORIES)
 
 

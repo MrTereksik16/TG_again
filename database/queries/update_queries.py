@@ -1,7 +1,6 @@
 from config.logging_config import logger
 from sqlalchemy import text
 from database.create_db import Session
-from database.models import User
 from utils.custom_types import MarkTypes
 
 
@@ -173,6 +172,78 @@ async def update_user_viewed_category_post_counter(user_tg_id: int, post_id: int
     session = Session()
     try:
         query = f'update user_viewed_category_post set counter = {counter_value} where user_id = {user_tg_id} and category_post_id={post_id}'
+        session.execute(text(query))
+        session.commit()
+    except Exception as err:
+        logger.error(f'Ошибка при обновлении счётчика просмотренного поста из категорий: {err}')
+    finally:
+        session.close()
+
+
+async def update_premium_channel_post_reports(post_id: int):
+    session = Session()
+    try:
+        query = f'update premium_post set reports = reports + 1 where id={post_id}'
+        session.execute(text(query))
+        session.commit()
+    except Exception as err:
+        logger.error(f'Ошибка при обновлении счётчика просмотренного поста из категорий: {err}')
+    finally:
+        session.close()
+
+
+async def update_category_channel_post_reports(post_id: int):
+    session = Session()
+    try:
+        query = f'update category_post set reports = reports + 1 where id={post_id}'
+        session.execute(text(query))
+        session.commit()
+    except Exception as err:
+        logger.error(f'Ошибка при обновлении счётчика просмотренного поста из категорий: {err}')
+    finally:
+        session.close()
+
+
+async def update_personal_channel_post_reports(post_id: int):
+    session = Session()
+    try:
+        query = f'update personal_post set reports = reports + 1 where id={post_id}'
+        session.execute(text(query))
+        session.commit()
+    except Exception as err:
+        logger.error(f'Ошибка при обновлении счётчика просмотренного поста из категорий: {err}')
+    finally:
+        session.close()
+
+
+async def update_premium_channel_post_report_message_id(post_id: int, report_message_id: int):
+    session = Session()
+    try:
+        query = f'update premium_post set report_message_id = {report_message_id} where id={post_id}'
+        session.execute(text(query))
+        session.commit()
+    except Exception as err:
+        logger.error(f'Ошибка при обновлении счётчика просмотренного поста из категорий: {err}')
+    finally:
+        session.close()
+
+
+async def update_category_channel_post_report_message_id(post_id: int, report_message_id: int):
+    session = Session()
+    try:
+        query = f'update category_post set report_message_id = {report_message_id} where id={post_id}'
+        session.execute(text(query))
+        session.commit()
+    except Exception as err:
+        logger.error(f'Ошибка при обновлении счётчика просмотренного поста из категорий: {err}')
+    finally:
+        session.close()
+
+
+async def update_personal_channel_post_report_message_id(post_id: int, report_message_id: int):
+    session = Session()
+    try:
+        query = f'update personal_post set report_message_id = {report_message_id} where id={post_id}'
         session.execute(text(query))
         session.commit()
     except Exception as err:

@@ -4,7 +4,7 @@ from aiogram.dispatcher.filters import Text
 from aiogram.types import Message, ReplyKeyboardRemove
 from pyrogram.types import InlineKeyboardMarkup, CallbackQuery, InlineKeyboardButton
 from create_bot import bot_client
-from utils.consts import answers
+from utils.consts import answers, errors
 from parse import parse
 import callbacks
 from database.queries.create_queries import create_personal_posts
@@ -36,7 +36,7 @@ async def on_add_personal_channels_message(message: Message, state: FSMContext):
     await state.set_state(PersonalStates.GET_USER_CHANNELS)
 
 
-async def on_add_channels_inline_button_click(callback: CallbackQuery, state: FSMContext):
+async def on_add_channels_button_click(callback: CallbackQuery, state: FSMContext):
     chat_id = callback.message.chat.id
     await bot_client.send_message(chat_id, answers.ADD_CHANNELS_MESSAGE_TEXT, reply_markup=general_reply_keyboards.general_cancel_keyboard)
     await state.set_state(PersonalStates.GET_USER_CHANNELS)
@@ -114,7 +114,7 @@ async def on_delete_user_channel_message(message: Message, state: FSMContext):
     await state.update_data(user_channels_usernames=channels_usernames, delete_user_channels_message=msg)
 
 
-async def on_delete_user_channel_inline_click(callback: CallbackQuery, state: FSMContext):
+async def on_delete_user_channel_button_click(callback: CallbackQuery, state: FSMContext):
     user_tg_id = callback.from_user.id
     channel_username = callback.data.split(':')[1]
     context_data = await state.get_data()
@@ -163,7 +163,7 @@ async def on_skip_message(message: Message):
     chat_id = message.chat.id
     result = await send_next_post(user_tg_id, chat_id, Modes.PERSONAL)
 
-    if not result:
+    if result == errors.NO_POST:
         await send_end_message(user_tg_id, chat_id, Modes.PERSONAL)
 
 
@@ -187,7 +187,7 @@ def register_personal_handlers(dp: Dispatcher):
     )
 
     dp.register_callback_query_handler(
-        on_add_channels_inline_button_click,
+        on_add_channels_button_click,
         Text(equals=callbacks.ADD_USER_CHANNELS),
         state=PersonalStates.PERSONAL_FEED
     )
@@ -205,7 +205,7 @@ def register_personal_handlers(dp: Dispatcher):
     )
 
     dp.register_callback_query_handler(
-        on_delete_user_channel_inline_click,
+        on_delete_user_channel_button_click,
         Text(startswith=callbacks.DELETE_USER_CHANNEL),
         state=PersonalStates.PERSONAL_FEED
     )

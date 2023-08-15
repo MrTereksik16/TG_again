@@ -3,7 +3,7 @@ from utils.consts import errors
 from config.logging_config import logger
 from database.models import UserChannel, User, PersonalPost, PersonalChannel, UserCategory, \
     PremiumPost, CategoryChannel, PremiumChannel, CategoryPost, UserViewedPremiumPost, \
-    UserViewedCategoryPost, UserViewedPersonalPost, Category
+    UserViewedCategoryPost, UserViewedPersonalPost, Category, Coefficient
 from utils.custom_types import Post
 
 
@@ -272,6 +272,22 @@ async def create_user_viewed_personal_post(user_tg_id, post_id) -> bool | str:
     try:
         new_user_personal_post = UserViewedPersonalPost(user_id=user_tg_id, personal_post_id=post_id)
         session.add(new_user_personal_post)
+        session.commit()
+        return True
+    except Exception as err:
+        logger.error(f'Ошибка при добавлении поста из персонального канала в просмотренные: {err}')
+        if errors.DUPLICATE_ERROR_TEXT in str(err):
+            return errors.DUPLICATE_ERROR_TEXT
+        return False
+    finally:
+        session.close()
+
+
+async def create_coefficient(coefficient_value: int):
+    session = Session()
+    try:
+        new_coefficient = Coefficient(value=coefficient_value)
+        session.add(new_coefficient)
         session.commit()
         return True
     except Exception as err:

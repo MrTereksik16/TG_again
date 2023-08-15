@@ -6,18 +6,17 @@ from re import match, sub
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State
 from pyrogram import Client
-from pyrogram.types import KeyboardButton, InputMediaPhoto, InputMediaVideo, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, Message
+from pyrogram.types import InputMediaPhoto, InputMediaVideo, Message
 from pyrogram.enums import ChatAction
 from config.config import ADMINS
 from create_bot import bot_client
 from database.queries.create_queries import *
 from database.queries.get_queries import *
-from database.queries.update_queries import update_user_viewed_premium_posts_counters, update_user_viewed_category_posts_counters, \
-    update_user_viewed_premium_post_counter, update_user_viewed_category_post_counter
+from database.queries.update_queries import *
+from keyboards.general.helpers import build_reactions_inline_keyboard, build_delete_post_keyboard
+from keyboards.general.inline.general_inline_buttons_texts import LIKE_BUTTON_TEXT, DISLIKE_BUTTON_TEXT, REPORT_BUTTON_TEXT
 from utils.consts import answers, errors
-from keyboards import personal_reply_keyboards, recommendations_reply_keyboards, categories_reply_keyboards, \
-    general_inline_buttons_texts
-import callbacks
+from keyboards import personal_reply_keyboards, recommendations_reply_keyboards, categories_reply_keyboards
 from utils.custom_types import Modes, PostTypes, AddChannelsResult
 from pyrogram.types import ReplyKeyboardRemove
 from PIL import Image
@@ -37,7 +36,7 @@ async def get_next_post(user_tg_id: int, mode: Modes):
         posts = await get_user_personal_posts(user_tg_id)
         next_post = choose_post(posts)
     elif mode == Modes.CATEGORIES:
-        posts = await get_best_not_viewed_categories_posts(user_tg_id)
+        posts = await get_not_viewed_categories_posts(user_tg_id)
         next_post = choose_post(posts)
     elif mode == Modes.RECOMMENDATIONS:
         await update_user_viewed_premium_posts_counters(user_tg_id)
@@ -53,7 +52,7 @@ async def get_next_post(user_tg_id: int, mode: Modes):
         for post in categories_best_posts:
             posts.append(post)
         next_post = choose_post(posts)
-
+        print(next_post)
     return next_post
 
 
@@ -72,48 +71,46 @@ def choose_post(posts: list):
     return posts[0]
 
 
-async def send_next_post(user_tg_id: int, chat_id: int, mode: Modes, next_post=None):
-    if not next_post:
-        next_post = await get_next_post(user_tg_id, mode)
-        if not next_post:
-            return False
+async def send_next_post(user_tg_id: int, chat_id: int, mode: Modes, post=None):
+    if not post:
+        post = await get_next_post(user_tg_id, mode)
+        if not post:
+            return errors.NO_POST
 
-    entities = pickle.loads(next_post.entities)
-    text = next_post.text
-    media_path = next_post.media_path
-    channel_username = next_post.username
-    likes = next_post.likes
-    dislikes = next_post.dislikes
-    post_id = next_post.id
-    message_text = f'{text}\n{answers.POST_FROM_CHANNEL_MESSAGE_TEXT.format(channel_username=channel_username)}'
+    entities = pickle.loads(post.entities)
+    media_path = post.media_path
+    likes = post.likes
+    dislikes = post.dislikes
+    post_id = post.id
+    message_text = post.text
 
     if mode == Modes.CATEGORIES:
-        category = next_post.name + next_post.emoji
+        category = post.name + post.emoji
         message_text += f'\nКатегория: `{category}`'
 
     keyboard = ReplyKeyboardRemove()
 
     if mode == Modes.RECOMMENDATIONS:
-        if hasattr(next_post, 'premium_channel_id'):
+        if hasattr(post, 'premium_channel_id'):
             result = await create_user_viewed_premium_post(user_tg_id, post_id)
             if result == errors.DUPLICATE_ERROR_TEXT:
                 await update_user_viewed_premium_post_counter(user_tg_id, post_id)
 
-            keyboard = create_reactions_keyboard(likes, dislikes, PostTypes.PREMIUM, post_id)
-        elif hasattr(next_post, 'category_channel_id'):
+            keyboard = build_reactions_inline_keyboard(likes, dislikes, PostTypes.PREMIUM, post_id)
+        elif hasattr(post, 'category_channel_id'):
             result = await create_user_viewed_category_post(user_tg_id, post_id)
             if result == errors.DUPLICATE_ERROR_TEXT:
                 await update_user_viewed_category_post_counter(user_tg_id, post_id)
 
-            keyboard = create_reactions_keyboard(likes, dislikes, PostTypes.CATEGORY, post_id)
+            keyboard = build_reactions_inline_keyboard(likes, dislikes, PostTypes.CATEGORY, post_id)
 
     elif mode == Modes.CATEGORIES:
         await create_user_viewed_category_post(user_tg_id, post_id)
-        keyboard = create_reactions_keyboard(likes, dislikes, PostTypes.CATEGORY, post_id)
+        keyboard = build_reactions_inline_keyboard(likes, dislikes, PostTypes.CATEGORY, post_id)
 
     elif mode == Modes.PERSONAL:
         await create_user_viewed_personal_post(user_tg_id, post_id)
-        keyboard = create_reactions_keyboard(likes, dislikes, PostTypes.PERSONAL, post_id)
+        keyboard = build_reactions_inline_keyboard(likes, dislikes, PostTypes.PERSONAL, post_id)
 
     try:
         if not media_path:
@@ -228,47 +225,6 @@ async def add_channels(channels: str, user_tg_id: int, mode: Modes, category_nam
     return AddChannelsResult(answer, to_parse)
 
 
-def create_buttons(texts: list[str]):
-    buttons = []
-    for category in texts:
-        buttons.append(KeyboardButton(text=category))
-    return buttons
-
-
-def create_menu(buttons: list[KeyboardButton], n_cols: int = 2, header_buttons: list[KeyboardButton] | KeyboardButton = None,
-                footer_buttons: list = None) -> ReplyKeyboardMarkup:
-    menu = [buttons[i:i + n_cols] for i in range(0, len(buttons), n_cols)]
-    if header_buttons:
-        if not isinstance(header_buttons, list):
-            header_buttons = [header_buttons]
-        menu.insert(0, header_buttons)
-    if footer_buttons:
-        menu.append(footer_buttons)
-    return ReplyKeyboardMarkup(menu, resize_keyboard=True)
-
-
-def create_reactions_keyboard(likes: int, dislikes: int, post_type: PostTypes, post_id: int):
-    if likes >= 1000000:
-        likes = f'{likes // 1000000}M'
-    elif likes >= 1000:
-        likes = f'{likes // 1000}K'
-
-    if dislikes >= 1000000:
-        likes = f'{dislikes // 1000000}M'
-    elif dislikes >= 1000:
-        dislikes = f'{dislikes // 1000}K'
-
-    like_button = InlineKeyboardButton(f'{general_inline_buttons_texts.LIKE_BUTTON_TEXT} {likes}',
-                                       callback_data=f'{callbacks.LIKE}:{post_type}:{post_id}:{likes}:{dislikes}')
-
-    dislike_button = InlineKeyboardButton(f'{general_inline_buttons_texts.DISLIKE_BUTTON_TEXT} {dislikes}',
-                                          callback_data=f'{callbacks.DISLIKE}:{post_type}:{post_id}:{likes}:{dislikes}')
-
-    keyboard = InlineKeyboardMarkup([[like_button, dislike_button]])
-
-    return keyboard
-
-
 def clean_channel_id(channel_id: int) -> int:
     channel_id = str(channel_id)
     if channel_id.startswith('-100'):
@@ -336,3 +292,83 @@ def remove_file_or_folder(path):
             shutil.rmtree(path)
     else:
         print("Path not found")
+
+
+async def send_post_to_support(chat_id: str | int, post):
+    entities = pickle.loads(post.entities)
+    post_text = post.text
+    media_path = post.media_path
+    reports = post.reports
+    post_id = post.id
+    report_message_id = post.report_message_id
+    likes = format_number(post.likes)
+    dislikes = format_number(post.dislikes)
+
+    post_type = PostTypes.PERSONAL
+    if hasattr(post, 'premium_channel_id'):
+        post_type = PostTypes.PREMIUM
+    elif hasattr(post, 'category_channel_id'):
+        post_type = PostTypes.CATEGORY
+
+    strings = [post_text, f'{LIKE_BUTTON_TEXT}: {likes}  {DISLIKE_BUTTON_TEXT}: {dislikes}  {REPORT_BUTTON_TEXT}: {reports}',
+               f'Источник: `{post_type}`']
+    result_post_text = join_with_newline(strings, 2)
+    keyboard = build_delete_post_keyboard(post, post_type)
+    report_message = None
+    try:
+        if report_message_id:
+            return await bot_client.edit_message_text(chat_id, report_message_id, result_post_text, reply_markup=keyboard)
+
+        if not media_path:
+            report_message = await bot_client.send_message(chat_id, result_post_text, entities=entities, reply_markup=keyboard)
+        else:
+            if media_path.endswith('.jpg'):
+                report_message = await bot_client.send_photo(chat_id, media_path, caption=result_post_text, caption_entities=entities,
+                                                             reply_markup=keyboard)
+            elif media_path.endswith('.mp4'):
+                report_message = await bot_client.send_video(chat_id, media_path, caption=result_post_text, caption_entities=entities,
+                                                             reply_markup=keyboard)
+            elif os.path.isdir(media_path):
+                media_group = []
+                files = os.listdir(media_path)
+                for file in files:
+                    if file.endswith('.jpg'):
+                        path = os.path.join(media_path, file)
+                        media_group.append(InputMediaPhoto(path))
+                    elif file.endswith('.mp4'):
+                        path = os.path.join(media_path, file)
+                        media_group.append(InputMediaVideo(path))
+                media_group_message = await bot_client.send_media_group(chat_id, media_group)
+                report_message = await bot_client.send_message(chat_id, result_post_text, entities=entities, reply_markup=keyboard,
+                                                               reply_to_message_id=media_group_message[0].id)
+        report_message_id = report_message.id
+
+        if post_type == PostTypes.PREMIUM:
+            await update_category_channel_post_report_message_id(post_id, report_message_id)
+        elif post_type == PostTypes.CATEGORY:
+            await update_category_channel_post_report_message_id(post_id, report_message_id)
+        elif post_type == PostTypes.PERSONAL:
+            await update_personal_channel_post_report_message_id(post_id, report_message_id)
+        return True
+    except Exception as err:
+        await bot_client.send_message(chat_id, 'Упс. Не получилось получить содержимое этого поста 😬', reply_markup=keyboard)
+        logger.error(f'Ошибка при отправлении поста в поддержку: {err}')
+        return False
+
+
+def join_with_newline(strings: list, new_lines_amount: int = 1) -> str:
+    new_line = '\n'
+    return f'{new_line * new_lines_amount}'.join(strings)
+
+
+def format_number(num):
+    if num >= 1000000:
+        num_str = str(num)
+        num_str = num_str[:-6] + 'm' + num_str[-6 + 1:]
+        return num_str
+    elif num >= 1000:
+        num_str = str(num)
+        num_str = num_str[:-3] + 'тыс.' + num_str[-3 + 1:]
+        return num_str
+    else:
+        return str(num)

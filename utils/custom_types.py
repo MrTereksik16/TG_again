@@ -1,16 +1,13 @@
-from pyrogram.types import MessageEntity
-
-
 class Modes:
-    RECOMMENDATIONS = 'recommendations'
-    PERSONAL = 'personal'
-    CATEGORIES = 'categories'
+    RECOMMENDATIONS = 'Рекомендации'
+    PERSONAL = 'Личная лента'
+    CATEGORIES = 'Категории'
 
 
 class PostTypes:
-    PREMIUM = 'premium'
-    PERSONAL = 'personal'
-    CATEGORY = 'category'
+    PREMIUM = 'Премиальный'
+    PERSONAL = 'Личный'
+    CATEGORY = 'Из категорий'
 
     def __new__(cls, value: str):
         if value == cls.PREMIUM:
@@ -25,6 +22,7 @@ class MarkTypes:
     LIKE = 1
     DISLIKE = 2
     NEUTRAL = 3
+    REPORT = 4
 
     def __new__(cls, value: int) -> int:
         if value == 1:

@@ -55,9 +55,12 @@ class PersonalPost(Base):
     text = Column(Text)
     media_path = Column(Text)
     entities = Column(BLOB)
-    personal_channel_id = Column(BIGINT(unsigned=True), ForeignKey('personal_channel.id', ondelete='CASCADE'))
     likes = Column(INTEGER(unsigned=True), default=0)
     dislikes = Column(INTEGER(unsigned=True), default=0)
+    report_message_id = Column(INTEGER(unsigned=True), default=None)
+    reports = Column(TINYINT(unsigned=True), default=0)
+    personal_channel_id = Column(BIGINT(unsigned=True), ForeignKey('personal_channel.id', ondelete='CASCADE'))
+
 
     personal_channel_connection = relationship('PersonalChannel', back_populates='personal_post_connection')
     user_viewed_personal_post_connection = relationship('UserViewedPersonalPost', cascade='all, delete', back_populates='personal_post_connection')
@@ -115,6 +118,7 @@ class PremiumPost(Base):
     dislikes = Column(Integer)
     views = Column(INTEGER(unsigned=True), default=0)
     report_message_id = Column(INTEGER(unsigned=True), default=None)
+    reports = Column(TINYINT(unsigned=True), default=0)
     premium_channel_id = Column(BIGINT(unsigned=True), ForeignKey('premium_channel.id', ondelete='CASCADE'))
 
     premium_channel_connection = relationship('PremiumChannel', back_populates='premium_post_connection')
@@ -151,6 +155,7 @@ class CategoryPost(Base):
     dislikes = Column(Integer)
     views = Column(INTEGER(unsigned=True), default=0)
     report_message_id = Column(INTEGER(unsigned=True), default=None)
+    reports = Column(TINYINT(unsigned=True), default=0)
     category_channel_id = Column(BIGINT(unsigned=True), ForeignKey('category_channel.id', ondelete='CASCADE'))
 
     category_channel_connection = relationship('CategoryChannel', back_populates='category_post_connection')

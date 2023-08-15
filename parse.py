@@ -57,11 +57,15 @@ async def parse(channel_username: str, chat_id: int, mode: Modes, limit=config.P
             media_paths = await asyncio.gather(*tasks)
             for message, message_media_path in zip(messages, media_paths):
                 message_entities = pickle.dumps(message.entities or message.caption_entities, protocol=None)
-                message_text = message.caption or message.text or ''
+
                 if message.media_group_id:
                     media_group = await message.get_media_group()
                     message_text = media_group[0].caption
-                data.append(Post(channel_id, channel_username, message_text, message_entities, message_media_path))
+                else:
+                    message_text = message.caption or message.text or ''
+
+                result_message_text = f'{message_text}\n\nПост с канала {channel_username}'
+                data.append(Post(channel_id, channel_username, result_message_text, message_entities, message_media_path))
 
             await user_client.send_message('me', channel_username)
             return data

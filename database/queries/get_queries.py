@@ -1,9 +1,7 @@
 from sqlalchemy import text
 from config.logging_config import logger
 from database.create_db import Session
-from database.models import User, PersonalChannel, UserChannel, PremiumChannel, CategoryChannel, UserViewedPremiumPost, Category, UserCategory, \
-    UserViewedCategoryPost, UserViewedPersonalPost, PersonalPost, PremiumPost, CategoryPost, Coefficient
-from utils.custom_types import MarkTypes
+from database.models import User, PersonalChannel, UserChannel, PremiumChannel, CategoryChannel, Category, UserCategory, PersonalPost, PremiumPost, CategoryPost, Coefficient
 
 
 async def get_user(user_tg_id: int) -> User:
@@ -46,7 +44,7 @@ async def get_user_channels_usernames(user_tg_id: int) -> list[str]:
     session = Session()
     channels = []
     try:
-        records = session.query(PersonalChannel).select_from(User).join(UserChannel).join(PersonalChannel).filter(User.id == user_tg_id)
+        records = session.query(PersonalChannel).select_from(UserChannel).join(PersonalChannel).filter(UserChannel.user_id == user_tg_id)
         channels = []
         for channel in records:
             channels.append(channel.username)
@@ -193,7 +191,10 @@ async def get_premium_posts(user_tg_id) -> list:
         select * from (
                 select posts.*, coefficient, username, row_number() over (partition by premium_channel_id order by rand()) as row_num from premium_post posts
                 join premium_channel rc on rc.id = posts.premium_channel_id
-            ) as p where row_num = 1
+                left join user_viewed_premium_post uvpp on posts.id = uvpp.premium_post_id and uvpp.user_id = {user_tg_id}
+                where (counter is null or counter = 0) and (mark_type_id is null or mark_type_id < 4)
+                order by RAND()
+            ) p where row_num = 1
             '''
 
         records = session.execute(text(query))
@@ -208,7 +209,7 @@ async def get_premium_posts(user_tg_id) -> list:
         return posts
 
 
-async def get_best_not_viewed_categories_posts(user_tg_id) -> list:
+async def get_not_viewed_categories_posts(user_tg_id) -> list:
     session = Session()
     posts = []
     try:
@@ -242,13 +243,13 @@ async def get_best_categories_posts(user_tg_id) -> list:
     try:
         query = f'''
         select *
-        from (select posts.*, coefficient, user_id, counter, username, name, emoji, row_number() over (partition by category_channel_id order by likes desc, dislikes) as row_num
+        from (select posts.*, coefficient, counter, username, name, emoji, row_number() over (partition by category_channel_id order by likes desc, dislikes) as row_num
             from category_post posts
             join category_channel cc on posts.category_channel_id = cc.id
             join category c on cc.category_id = c.id
             left join user_viewed_category_post uvcp on posts.id = uvcp.category_post_id and uvcp.user_id = {user_tg_id}
-            where counter is NULL or counter = 0
-        ) subquery where likes >= dislikes and (row_num = 1 or likes = (select MAX(likes) from category_post))
+            where (counter is NULL or counter = 0) and (mark_type_id is null or mark_type_id < 4)
+        ) subquery where likes >= dislikes and row_num = 1
         '''
 
         records = session.execute(text(query))
@@ -295,52 +296,57 @@ async def get_user_categories(user_tg_id: int) -> list[str]:
         return result
 
 
-async def get_viewed_personal_post_mark_type(user_tg_id: int, post_id: int) -> MarkTypes | None:
+async def get_viewed_personal_post(user_tg_id: int, post_id: int):
     session = Session()
-    mark_type = None
+    personal_post = None
     try:
-        post = session \
-            .query(UserViewedPersonalPost) \
-            .filter(UserViewedPersonalPost.user_id == user_tg_id, UserViewedPersonalPost.personal_post_id == post_id) \
-            .one()
-        mark_type = MarkTypes(post.mark_type_id)
+        query = f'''
+                    select mark_type_id, posts.* from personal_post posts
+                    join user_viewed_personal_post uvpp on posts.id = uvpp.personal_post_id
+                    where user_id = {user_tg_id} and posts.id = {post_id}
+                '''
+
+        personal_post = session.execute(text(query)).one()
     except Exception as err:
         logger.error(f'Ошибка при получении реакции на персональный пост пользователя: {err}')
     finally:
         session.close()
-        return mark_type
+        return personal_post
 
 
-async def get_viewed_premium_post_mark_type(user_tg_id: int, post_id: int) -> MarkTypes | None:
+async def get_viewed_premium_post(user_tg_id: int, post_id: int):
     session = Session()
-    mark_type = None
+    premium_post = None
     try:
-        post = session \
-            .query(UserViewedPremiumPost.mark_type_id) \
-            .filter(UserViewedPremiumPost.user_id == user_tg_id, UserViewedPremiumPost.premium_post_id == post_id) \
-            .one()
-        mark_type = MarkTypes(post.mark_type_id)
+        query = f'''
+            select mark_type_id, posts.* from premium_post posts
+            join user_viewed_premium_post uvpp on posts.id = uvpp.premium_post_id
+            where user_id = {user_tg_id} and posts.id = {post_id}
+        '''
+        premium_post = session.execute(text(query)).one()
     except Exception as err:
         logger.error(f'Ошибка при получении реакции на премиальный пост пользователя: {err}')
     finally:
         session.close()
-        return mark_type
+        return premium_post
 
 
-async def get_viewed_category_post_mark_type(user_tg_id: int, post_id: int) -> MarkTypes | None:
+async def get_viewed_category_post(user_tg_id: int, post_id: int):
     session = Session()
-    mark_type = None
+    category_post = None
     try:
-        post = session \
-            .query(UserViewedCategoryPost) \
-            .filter(UserViewedCategoryPost.user_id == user_tg_id, UserViewedCategoryPost.category_post_id == post_id) \
-            .one()
-        mark_type = MarkTypes(post.mark_type_id)
+        query = f'''
+                    select mark_type_id, posts.* from category_post posts
+                    join user_viewed_category_post uvcp on posts.id = uvcp.category_post_id
+                    where user_id = {user_tg_id} and posts.id = {post_id}
+                '''
+
+        category_post = session.execute(text(query)).one()
     except Exception as err:
         logger.error(f'Ошибка при получении реакции на пост из категорий пользователя: {err}')
     finally:
         session.close()
-        return mark_type
+        return category_post
 
 
 async def get_all_premium_channels() -> list[PremiumChannel]:
@@ -412,7 +418,7 @@ async def get_coefficients() -> list:
         records = session.query(Coefficient).filter(Coefficient.value > 1).all()
 
         for coefficient in records:
-            coefficients.append(coefficient.value)
+            coefficients.append(f'{coefficient.value}X')
 
     except Exception as err:
         logger.error(f'Ошибка при получении всех коэффициентов: {err}')

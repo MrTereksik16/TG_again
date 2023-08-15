@@ -33,6 +33,8 @@ def create_initial_data():
         session.add(new_mark_type)
         new_mark_type = MarkType(name='neutral')
         session.add(new_mark_type)
+        new_mark_type = MarkType(name='report')
+        session.add(new_mark_type)
 
         new_coefficient = Coefficient(value=1)
         session.add(new_coefficient)
