@@ -19,7 +19,7 @@
 - Запросы к базе данных следует писать в папке `database/queries`. При написании запросов начинайте название функции с типа запроса (`create`, `get`, `delete`, `update`). Обязательно оборачивайте запросы в блок `try-except-finally` и закрывайте сессию в блоке `finally`. Например:
 
 ```python
-async def delete_personal_channel(username):
+async def delete_personal_channel(channel_username):
     from sqlalchemy import select
     from database.create_db import Session
     from database.models import PersonalChannel, UserChannel
@@ -27,7 +27,7 @@ async def delete_personal_channel(username):
 
     session = Session()
     try:
-        personal_channel_id = session.execute(select(PersonalChannel.id).where(PersonalChannel.username == username)).fetchone()[0]
+        personal_channel_id = session.execute(select(PersonalChannel.id).where(PersonalChannel.channel_username == channel_username)).fetchone()[0]
         session.query(UserChannel).filter(UserChannel.channel_id == personal_channel_id).delete()
         session.flush()
         session.query(PersonalChannel).filter(PersonalChannel.id == personal_channel_id).delete()

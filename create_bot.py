@@ -1,6 +1,7 @@
 from aiogram import Bot, Dispatcher
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.types import ParseMode
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from config import config
 from pyrogram import Client
@@ -12,3 +13,4 @@ bot_client.start()
 bot = Bot(token=config.TOKEN, disable_web_page_preview=True, parse_mode=ParseMode.HTML)
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
+scheduler = AsyncIOScheduler()

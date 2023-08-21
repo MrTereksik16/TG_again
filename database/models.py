@@ -1,14 +1,21 @@
-from sqlalchemy.sql.sqltypes import BLOB
+from sqlalchemy.sql.sqltypes import BLOB, DateTime, Date
 from sqlalchemy.dialects.mysql import BIGINT, INTEGER, TINYINT
-from sqlalchemy import Column, Integer, String, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, ForeignKey, Text, func
 from sqlalchemy.orm import relationship
 from database.create_db import Base, engine
+from utils.custom_types import MarkTypes
 
 
 class User(Base):
     __tablename__ = 'user'
 
     id = Column(BIGINT(unsigned=True), primary_key=True, autoincrement=False)
+    first_name = Column(String(40))
+    last_name = Column(String(40))
+    username = Column(String(40))
+    created_at = Column(DateTime(), server_default=func.now())
+    visited_at = Column(DateTime(), server_default=func.now())
+    views_per_day = Column(INTEGER(unsigned=True), default=0)
 
     user_channel_connection = relationship('UserChannel', cascade='all, delete', back_populates='user_connection')
     user_category_connection = relationship('UserCategory', cascade='all, delete', back_populates='user_connection')
@@ -37,7 +44,7 @@ class PersonalChannel(Base):
     __tablename__ = 'personal_channel'
 
     id = Column(BIGINT(unsigned=True), primary_key=True, autoincrement=False)
-    username = Column(String(100), unique=True, nullable=False)
+    channel_username = Column(String(100), unique=True, nullable=False)
     coefficient = Column(TINYINT(unsigned=True), ForeignKey('coefficient.value', ondelete='CASCADE'), default=1)
 
     user_channel_connection = relationship('UserChannel', cascade='all, delete', back_populates='personal_channel_connection')
@@ -45,7 +52,7 @@ class PersonalChannel(Base):
     coefficient_connection = relationship('Coefficient', cascade='all, delete', back_populates='personal_channel_connection')
 
     def __repr__(self):
-        return f'<PersonalChannel(id={self.id}, tg_id={self.tg_id} username={self.username}, coefficient={self.coefficient})>'
+        return f'<PersonalChannel(id={self.id}, tg_id={self.tg_id} channel_username={self.channel_username}, coefficient={self.coefficient})>'
 
 
 class PersonalPost(Base):
@@ -60,7 +67,6 @@ class PersonalPost(Base):
     report_message_id = Column(INTEGER(unsigned=True), default=None)
     reports = Column(TINYINT(unsigned=True), default=0)
     personal_channel_id = Column(BIGINT(unsigned=True), ForeignKey('personal_channel.id', ondelete='CASCADE'))
-
 
     personal_channel_connection = relationship('PersonalChannel', back_populates='personal_post_connection')
     user_viewed_personal_post_connection = relationship('UserViewedPersonalPost', cascade='all, delete', back_populates='personal_post_connection')
@@ -97,14 +103,14 @@ class PremiumChannel(Base):
     __tablename__ = 'premium_channel'
 
     id = Column(BIGINT(unsigned=True), primary_key=True, autoincrement=False)
-    username = Column(String(32), unique=True, nullable=False)
+    channel_username = Column(String(32), unique=True, nullable=False)
     coefficient = Column(TINYINT(unsigned=True), ForeignKey('coefficient.value', ondelete='CASCADE'), default=2)
 
     premium_post_connection = relationship('PremiumPost', cascade='all, delete', back_populates='premium_channel_connection')
     coefficient_connection = relationship('Coefficient', cascade='all, delete', back_populates='premium_channel_connection')
 
     def __repr__(self):
-        return f'<PremiumChannel(id={self.id}, username={self.username} coefficient={self.coefficient})>'
+        return f'<PremiumChannel(id={self.id}, channel_username={self.channel_username} coefficient={self.coefficient})>'
 
 
 class PremiumPost(Base):
@@ -132,7 +138,7 @@ class CategoryChannel(Base):
     __tablename__ = 'category_channel'
 
     id = Column(BIGINT(unsigned=True), primary_key=True, autoincrement=False)
-    username = Column(String(32), unique=True, nullable=False)
+    channel_username = Column(String(32), unique=True, nullable=False)
     category_id = Column(TINYINT(unsigned=True), ForeignKey('category.id', ondelete='CASCADE'), nullable=False)
     coefficient = Column(TINYINT(unsigned=True), ForeignKey('coefficient.value', ondelete='CASCADE'), default=1)
 
@@ -141,7 +147,7 @@ class CategoryChannel(Base):
     coefficient_connection = relationship('Coefficient', cascade='all, delete', back_populates='category_channel_connection')
 
     def __repr__(self):
-        return f'<CategoryChannel(id={self.id}, tg_id={self.tg_id}, username={self.username}, category_id={self.category_id})>'
+        return f'<CategoryChannel(id={self.id}, tg_id={self.tg_id}, channel_username={self.channel_username}, category_id={self.category_id})>'
 
 
 class CategoryPost(Base):
@@ -184,7 +190,7 @@ class UserViewedPremiumPost(Base):
 
     user_id = Column(BIGINT(unsigned=True), ForeignKey('user.id', ondelete='CASCADE'), primary_key=True)
     premium_post_id = Column(BIGINT(unsigned=True), ForeignKey('premium_post.id', ondelete='CASCADE'), primary_key=True)
-    mark_type_id = Column(TINYINT(unsigned=True), ForeignKey('mark_type.id', ondelete='CASCADE'), default=3)
+    mark_type_id = Column(TINYINT(unsigned=True), ForeignKey('mark_type.id', ondelete='CASCADE'), default=MarkTypes.NEUTRAL)
     counter = Column(TINYINT(unsigned=True), default=15)
 
     user_connection = relationship('User', back_populates='user_viewed_premium_post_connection')
@@ -200,7 +206,7 @@ class UserViewedCategoryPost(Base):
 
     user_id = Column(BIGINT(unsigned=True), ForeignKey('user.id', ondelete='CASCADE'), primary_key=True)
     category_post_id = Column(BIGINT(unsigned=True), ForeignKey('category_post.id', ondelete='CASCADE'), primary_key=True)
-    mark_type_id = Column(TINYINT(unsigned=True), ForeignKey('mark_type.id', ondelete='CASCADE'), default=3)
+    mark_type_id = Column(TINYINT(unsigned=True), ForeignKey('mark_type.id', ondelete='CASCADE'), default=MarkTypes.NEUTRAL)
     counter = Column(TINYINT(unsigned=True), default=15)
 
     user_connection = relationship('User', back_populates='user_viewed_category_post_connection')
@@ -216,7 +222,7 @@ class UserViewedPersonalPost(Base):
 
     user_id = Column(BIGINT(unsigned=True), ForeignKey('user.id', ondelete='CASCADE'), primary_key=True)
     personal_post_id = Column(BIGINT(unsigned=True), ForeignKey('personal_post.id', ondelete='CASCADE'), primary_key=True)
-    mark_type_id = Column(TINYINT(unsigned=True), ForeignKey('mark_type.id', ondelete='CASCADE'), default=3)
+    mark_type_id = Column(TINYINT(unsigned=True), ForeignKey('mark_type.id', ondelete='CASCADE'), default=MarkTypes.NEUTRAL)
 
     user_connection = relationship('User', back_populates='user_viewed_personal_post_connection')
     personal_post_connection = relationship('PersonalPost', back_populates='user_viewed_personal_post_connection')
@@ -229,7 +235,7 @@ class UserViewedPersonalPost(Base):
 class Coefficient(Base):
     __tablename__ = 'coefficient'
 
-    value = Column(TINYINT(unsigned=True), primary_key=True, nullable=False)
+    value = Column(TINYINT(unsigned=True), primary_key=True)
 
     premium_channel_connection = relationship('PremiumChannel', cascade='all, delete', back_populates='coefficient_connection')
     personal_channel_connection = relationship('PersonalChannel', cascade='all, delete', back_populates='coefficient_connection')
@@ -237,6 +243,18 @@ class Coefficient(Base):
 
     def __repr__(self):
         return f'<Coefficient(value={self.value})>'
+
+
+class DailyStatistic(Base):
+    __tablename__ = 'daily_statistic'
+    date_today = Column(Date(), primary_key=True, default=func.current_date())
+    new_users_amount = Column(INTEGER(unsigned=True), default=0)
+    likes = Column(INTEGER(unsigned=True), default=0)
+    dislikes = Column(INTEGER(unsigned=True), default=0)
+
+    def __repr__(self):
+        return f'<DailyStatistic(date_today={self.date_today}, new_users_amount={self.new_users_amount}, likes={self.likes},dislikes={self.dislikes})>'
+
 
 # Пересоздаёт бд
 # Base.metadata.drop_all(engine, checkfirst=True)

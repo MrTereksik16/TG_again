@@ -3,14 +3,14 @@ from utils.consts import errors
 from config.logging_config import logger
 from database.models import UserChannel, User, PersonalPost, PersonalChannel, UserCategory, \
     PremiumPost, CategoryChannel, PremiumChannel, CategoryPost, UserViewedPremiumPost, \
-    UserViewedCategoryPost, UserViewedPersonalPost, Category, Coefficient
+    UserViewedCategoryPost, UserViewedPersonalPost, Category, Coefficient, DailyStatistic
 from utils.custom_types import Post
 
 
-async def create_user(user_tg_id: int) -> bool:
+async def create_user(user_tg_id: int, first_name: str, last_name: str, username: str) -> bool:
     session = Session()
     try:
-        user = User(id=user_tg_id)
+        user = User(id=user_tg_id, first_name=first_name, last_name=last_name, username=username)
         session.add(user)
         session.commit()
         return True
@@ -21,10 +21,10 @@ async def create_user(user_tg_id: int) -> bool:
         session.close()
 
 
-async def create_personal_channel(channel_tg_id: int, channel_username: str, coefficient: int) -> int | str | None:
+async def create_personal_channel(channel_tg_id: int, channel_username: str, coefficient: int) -> bool | str:
     session = Session()
     try:
-        personal_channel = PersonalChannel(id=channel_tg_id, username=channel_username, coefficient=coefficient)
+        personal_channel = PersonalChannel(id=channel_tg_id, channel_username=channel_username, coefficient=coefficient)
         session.add(personal_channel)
         session.commit()
         return True
@@ -37,7 +37,7 @@ async def create_personal_channel(channel_tg_id: int, channel_username: str, coe
         session.close()
 
 
-async def create_user_channel(user_tg_id: int, channel_tg_id: int) -> bool:
+async def create_user_channel(user_tg_id: int, channel_tg_id: int) -> bool | str:
     session = Session()
     try:
         session.add(UserChannel(user_id=user_tg_id, channel_id=channel_tg_id))
@@ -52,10 +52,10 @@ async def create_user_channel(user_tg_id: int, channel_tg_id: int) -> bool:
         session.close()
 
 
-async def create_category_channel(channel_tg_id: int, channel_username: str, category_id: int, coefficient: int) -> bool:
+async def create_category_channel(channel_tg_id: int, channel_username: str, category_id: int, coefficient: int) -> bool | str:
     session = Session()
     try:
-        new_category_channel = CategoryChannel(id=channel_tg_id, category_id=category_id, username=channel_username, coefficient=coefficient)
+        new_category_channel = CategoryChannel(id=channel_tg_id, category_id=category_id, channel_username=channel_username, coefficient=coefficient)
         session.add(new_category_channel)
         session.commit()
         return True
@@ -203,7 +203,7 @@ async def create_category(category_name: str, category_emoji: str) -> bool | str
         session.close()
 
 
-async def create_user_category(user_tg_id: int, category_id: int) -> bool:
+async def create_user_category(user_tg_id: int, category_id: int) -> bool | str:
     session = Session()
     try:
         new_user_category = UserCategory(user_id=user_tg_id, category_id=category_id)
@@ -219,10 +219,10 @@ async def create_user_category(user_tg_id: int, category_id: int) -> bool:
         session.close()
 
 
-async def create_premium_channel(channel_tg_id: int, channel_username: str, coefficient: int) -> bool:
+async def create_premium_channel(channel_tg_id: int, channel_username: str, coefficient: int) -> bool | str:
     session = Session()
     try:
-        new_recommendation_channel = PremiumChannel(id=channel_tg_id, username=channel_username, coefficient=coefficient)
+        new_recommendation_channel = PremiumChannel(id=channel_tg_id, channel_username=channel_username, coefficient=coefficient)
         session.add(new_recommendation_channel)
         session.commit()
         return True
@@ -283,7 +283,7 @@ async def create_user_viewed_personal_post(user_tg_id, post_id) -> bool | str:
         session.close()
 
 
-async def create_coefficient(coefficient_value: int):
+async def create_coefficient(coefficient_value: int) -> bool | str:
     session = Session()
     try:
         new_coefficient = Coefficient(value=coefficient_value)
@@ -292,6 +292,22 @@ async def create_coefficient(coefficient_value: int):
         return True
     except Exception as err:
         logger.error(f'Ошибка при добавлении поста из персонального канала в просмотренные: {err}')
+        if errors.DUPLICATE_ERROR_TEXT in str(err):
+            return errors.DUPLICATE_ERROR_TEXT
+        return False
+    finally:
+        session.close()
+
+
+async def create_daily_statistic():
+    session = Session()
+    try:
+        new_daily_statistic = DailyStatistic()
+        session.add(new_daily_statistic)
+        session.commit()
+        return True
+    except Exception as err:
+        logger.error(f'Ошибка при создании записи дневной статистики: {err}')
         if errors.DUPLICATE_ERROR_TEXT in str(err):
             return errors.DUPLICATE_ERROR_TEXT
         return False

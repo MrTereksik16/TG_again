@@ -4,7 +4,7 @@ from aiogram.dispatcher.filters import Text
 from aiogram.types import Message, ReplyKeyboardRemove
 from pyrogram.types import InlineKeyboardMarkup, CallbackQuery, InlineKeyboardButton
 from create_bot import bot_client
-from utils.consts import answers, errors
+from utils.consts import answers
 from parse import parse
 import callbacks
 from database.queries.create_queries import create_personal_posts
@@ -13,7 +13,7 @@ from database.queries.get_queries import get_user_channels_usernames
 from keyboards import personal_inline_keyboards
 from keyboards import personal_reply_keyboards
 from store.states import PersonalStates
-from utils.helpers import add_channels, get_next_post, send_next_post, send_end_message, reset_and_switch_state, remove_file_or_folder
+from utils.helpers import add_channels, reset_and_switch_state, remove_file_or_folder
 from keyboards import personal_reply_buttons_texts, general_reply_buttons_texts, general_reply_keyboards
 from utils.custom_types import Modes
 from config.config import MEDIA_DIR
@@ -105,9 +105,9 @@ async def on_delete_user_channel_message(message: Message, state: FSMContext):
         return await message.answer('Список ваших каналов пуст',
                                     reply_markup=personal_inline_keyboards.add_user_channels_inline_keyboard)
     buttons = []
-    for username in channels_usernames:
-        callback_data = f'{callbacks.DELETE_USER_CHANNEL}:{username}'
-        buttons.append([InlineKeyboardButton(username, callback_data=callback_data)])
+    for channel_username in channels_usernames:
+        callback_data = f'{callbacks.DELETE_USER_CHANNEL}:{channel_username}'
+        buttons.append([InlineKeyboardButton(channel_username, callback_data=callback_data)])
 
     keyboard = InlineKeyboardMarkup(buttons)
     msg = await message.answer(answers.DELETE_CHANNEL_MESSAGE_TEXT, reply_markup=keyboard)
@@ -127,9 +127,9 @@ async def on_delete_user_channel_button_click(callback: CallbackQuery, state: FS
         channels_usernames.remove(channel_username)
         await state.update_data(user_channels_usernames=channels_usernames)
         buttons = []
-        for username in channels_usernames:
-            callback_data = f'{callbacks.DELETE_USER_CHANNEL}:{username}'
-            buttons.append([InlineKeyboardButton(username, callback_data=callback_data)])
+        for channel_username in channels_usernames:
+            callback_data = f'{callbacks.DELETE_USER_CHANNEL}:{channel_username}'
+            buttons.append([InlineKeyboardButton(channel_username, callback_data=callback_data)])
         keyboard = InlineKeyboardMarkup(buttons)
 
         if not buttons:
@@ -139,32 +139,6 @@ async def on_delete_user_channel_button_click(callback: CallbackQuery, state: FS
         await callback.answer('Канал успешно удалён из списка')
     else:
         await callback.answer('Не удалось удалить канал')
-
-
-async def on_start_message(message: Message):
-    user_tg_id = message.from_user.id
-    user_channels = await get_user_channels_usernames(user_tg_id)
-    if not user_channels:
-        return await message.answer('Сперва нужно добавить хотя бы один канал')
-
-    chat_id = message.chat.id
-    next_post = await get_next_post(user_tg_id, Modes.PERSONAL)
-    keyboard = personal_reply_keyboards.personal_control_keyboard
-
-    if next_post:
-        await message.answer(answers.PRE_SCROLL_MESSAGE_TEXT, reply_markup=keyboard)
-        await send_next_post(user_tg_id, chat_id, Modes.PERSONAL, next_post)
-    else:
-        await send_end_message(user_tg_id, chat_id, Modes.PERSONAL)
-
-
-async def on_skip_message(message: Message):
-    user_tg_id = message.from_user.id
-    chat_id = message.chat.id
-    result = await send_next_post(user_tg_id, chat_id, Modes.PERSONAL)
-
-    if result == errors.NO_POST:
-        await send_end_message(user_tg_id, chat_id, Modes.PERSONAL)
 
 
 def register_personal_handlers(dp: Dispatcher):
@@ -207,17 +181,5 @@ def register_personal_handlers(dp: Dispatcher):
     dp.register_callback_query_handler(
         on_delete_user_channel_button_click,
         Text(startswith=callbacks.DELETE_USER_CHANNEL),
-        state=PersonalStates.PERSONAL_FEED
-    )
-
-    dp.register_message_handler(
-        on_start_message,
-        Text(equals=general_reply_buttons_texts.START_BUTTON_TEXT),
-        state=PersonalStates.PERSONAL_FEED,
-    )
-
-    dp.register_message_handler(
-        on_skip_message,
-        Text(equals=general_reply_buttons_texts.SKIP_BUTTON_TEXT),
         state=PersonalStates.PERSONAL_FEED
     )

@@ -53,7 +53,6 @@ async def on_category_message(message: Message, state: FSMContext):
     user_tg_id = message.from_user.id
     categories = await get_categories()
     user_is_admin = user_tg_id in ADMINS
-    print(categories)
     keyboard = categories_reply_keyboards.categories_start_control_keyboard
     if user_is_admin:
         keyboard = categories_reply_keyboards.categories_admin_start_control_keyboard
@@ -95,37 +94,6 @@ async def on_category_message(message: Message, state: FSMContext):
         await message.answer(f'Список ваших категорий пуст')
 
 
-async def on_start_message(message: Message):
-    user_tg_id = message.from_user.id
-    user_categories = await get_user_categories(user_tg_id)
-    if not user_categories:
-        return await message.answer('Сперва нужно добавить хотя бы одну категорию')
-
-    user_is_admin = user_tg_id in ADMINS
-    chat_id = message.chat.id
-
-    next_post = await get_next_post(user_tg_id, Modes.CATEGORIES)
-    keyboard = categories_reply_keyboards.categories_control_keyboard
-
-    if user_is_admin:
-        keyboard = categories_reply_keyboards.categories_admin_control_keyboard
-
-    if next_post:
-        await message.answer(answers.PRE_SCROLL_MESSAGE_TEXT, reply_markup=keyboard)
-        await send_next_post(user_tg_id, chat_id, Modes.CATEGORIES, next_post)
-    else:
-        await send_end_message(user_tg_id, chat_id, Modes.CATEGORIES)
-
-
-async def on_skip_message(message: Message):
-    user_tg_id = message.from_user.id
-    chat_id = message.chat.id
-    result = await send_next_post(user_tg_id, chat_id, Modes.CATEGORIES)
-
-    if result == errors.NO_POST:
-        await send_end_message(user_tg_id, chat_id, Modes.CATEGORIES)
-
-
 def register_categories_handlers(dp: Dispatcher):
     dp.register_message_handler(
         on_category_message,
@@ -142,17 +110,5 @@ def register_categories_handlers(dp: Dispatcher):
     dp.register_message_handler(
         on_add_or_delete_user_categories_message,
         Text(equals=categories_reply_buttons_texts.ADD_OR_DELETE_USER_CATEGORIES_BUTTON_TEXT),
-        state=CategoriesStates.CATEGORIES_FEED
-    )
-
-    dp.register_message_handler(
-        on_start_message,
-        Text(general_reply_buttons_texts.START_BUTTON_TEXT),
-        state=CategoriesStates.CATEGORIES_FEED,
-    )
-
-    dp.register_message_handler(
-        on_skip_message,
-        Text(general_reply_buttons_texts.SKIP_BUTTON_TEXT),
         state=CategoriesStates.CATEGORIES_FEED
     )

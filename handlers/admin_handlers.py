@@ -6,7 +6,7 @@ from pyrogram.types import InlineKeyboardMarkup, CallbackQuery, InlineKeyboardBu
 import callbacks
 from create_bot import bot_client
 from database.queries.delete_queries import delete_category, delete_premium_channel, delete_category_channel, delete_coefficient
-from database.queries.get_queries import get_categories, get_all_premium_channels, get_all_categories_channels, get_coefficients
+from database.queries.get_queries import get_categories, get_all_premium_channels, get_all_categories_channels, get_coefficients, get_category_channel
 from database.queries.create_queries import create_premium_posts, create_category_posts, create_category, create_coefficient
 from keyboards.general.helpers import build_reply_buttons, build_reply_keyboard
 from utils.consts import answers, errors
@@ -37,13 +37,13 @@ async def on_channels_coefficient_message(message: Message, state: FSMContext):
         return await message.answer(answers.ADMIN_PANEL_MESSAGE_TEXT, reply_markup=admin_reply_keyboards.admin_panel_control_keyboard)
 
     coefficients: list = (await state.get_data())['coefficients']
-    coefficient = int(message.text)
+    coefficient = message.text
 
     if coefficient not in coefficients:
         return await message.answer('Такого коэффициента нет')
 
     await state.set_state(AdminPanelStates.GET_PREMIUM_CHANNELS)
-    await state.update_data(coefficient=coefficient)
+    await state.update_data(coefficient=coefficient[:1])
     await message.answer(answers.ADD_CHANNELS_MESSAGE_TEXT, reply_markup=general_reply_keyboards.general_cancel_keyboard)
 
 
@@ -51,6 +51,8 @@ async def on_premium_channels_message(message: Message, state: FSMContext):
     if message.text == general_reply_buttons_texts.CANCEL_BUTTON_TEXT:
         await reset_and_switch_state(state, AdminPanelStates.ADMIN_PANEL)
         return await message.answer(answers.ADMIN_PANEL_MESSAGE_TEXT, reply_markup=admin_reply_keyboards.admin_panel_control_keyboard)
+
+
 
     coefficient = (await state.get_data())['coefficient']
     keyboard = admin_reply_keyboards.admin_panel_control_keyboard
@@ -74,6 +76,7 @@ async def on_premium_channels_message(message: Message, state: FSMContext):
 
     to_parse_len = len(to_parse)
     for i, channel_username in enumerate(to_parse, start=1):
+        await delete_category_channel(channel_username)
         posts = await parse(channel_username, chat_id, mode=mode)
         if not posts:
             await bot_client.send_message(chat_id, 'Канал пуст', reply_markup=admin_reply_keyboards.admin_panel_control_keyboard)
@@ -142,6 +145,7 @@ async def on_category_channels_message(message: Message, state: FSMContext):
 
     to_parse_len = len(to_parse)
     for i, channel_username in enumerate(to_parse, start=1):
+        await delete_premium_channel(channel_username)
         posts = await parse(channel_username, chat_id, mode=mode)
         if not posts:
             await bot_client.send_message(chat_id, 'Канал пуст', reply_markup=admin_reply_keyboards.admin_panel_control_keyboard)
@@ -158,7 +162,7 @@ async def on_category_channels_message(message: Message, state: FSMContext):
 
 async def on_list_premium_channels_message(message: Message):
     channels = await get_all_premium_channels()
-    channels = [f'@{channel.username} | <b>{channel.coefficient}</b>' for channel in channels]
+    channels = [f'@{channel.channel_username} | <b>{channel.coefficient}</b>' for channel in channels]
     answer = convert_list_of_items_to_string(channels, code=False)
 
     if not channels:
@@ -182,7 +186,7 @@ async def on_list_categories_channels_message(message: Message):
     if not categories_channels:
         return await message.answer('Список каналов из категорий пуст')
     else:
-        categories_channels = [f'@{channel.username} | <code>{channel.name} {channel.emoji}</code>' for channel in categories_channels]
+        categories_channels = [f'@{channel.channel_username} | <code>{channel.name} {channel.emoji}</code>' for channel in categories_channels]
         answer = convert_list_of_items_to_string(categories_channels, code=False)
         await message.answer(answer)
 
@@ -271,7 +275,7 @@ async def on_delete_premium_channels_message(message: Message, state: FSMContext
     if not premium_channels:
         return await message.answer('Список премиальных каналов пуст')
 
-    channels = [f'{channel.username}:{channel.coefficient}' for channel in premium_channels]
+    channels = [f'{channel.channel_username}:{channel.coefficient}' for channel in premium_channels]
     buttons = []
     for channel in channels:
         callback_data = f'{callbacks.DELETE_PREMIUM_CHANNEL}:{channel}'
@@ -320,7 +324,7 @@ async def on_delete_categories_channels_message(message: Message, state: FSMCont
     if not channels_list:
         return await message.answer('Список каналов из категорий пуст')
 
-    buttons_texts = [f'{channel.username} | {channel.name} {channel.emoji}' for channel in channels_list]
+    buttons_texts = [f'{channel.channel_username} | {channel.name} {channel.emoji}' for channel in channels_list]
     buttons = build_reply_buttons(buttons_texts)
     keyboard = build_reply_keyboard(buttons, header_buttons=general_reply_buttons.cancel_button)
 

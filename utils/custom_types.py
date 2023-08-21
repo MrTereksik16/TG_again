@@ -24,14 +24,6 @@ class MarkTypes:
     NEUTRAL = 3
     REPORT = 4
 
-    def __new__(cls, value: int) -> int:
-        if value == 1:
-            return cls.LIKE
-        if value == 2:
-            return cls.DISLIKE
-        if value == 3:
-            return cls.NEUTRAL
-
 
 class AddChannelsResult:
     answer = None

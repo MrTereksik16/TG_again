@@ -16,6 +16,8 @@ def create_initial_data():
     session.execute(text(query))
     session.flush()
 
+    session.execute(text(query))
+    session.flush()
     for i in range(0, len(CATEGORIES)):
         try:
             new_category = Category(id=i + 1, name=CATEGORIES[i], emoji=f'{CATEGORIES_EMOJI[CATEGORIES[i]]}')

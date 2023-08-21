@@ -10,10 +10,79 @@ from database.queries.update_queries import *
 from database.queries.delete_queries import delete_premium_channel_post, delete_category_channel_post, delete_personal_channel_post
 from keyboards import admin_reply_keyboards
 from keyboards import general_reply_buttons_texts
+from keyboards.categories.reply import categories_reply_keyboards
 from keyboards.general.helpers import build_reactions_inline_keyboard
+from keyboards.personal.reply import personal_reply_keyboards
+from keyboards.recommendations.reply import recommendations_reply_keyboards
 from store.states import *
-from utils.custom_types import PostTypes, MarkTypes
-from utils.helpers import send_post_to_support
+from utils.consts import answers, errors
+from utils.custom_types import PostTypes, MarkTypes, Modes
+from utils.helpers import send_post_to_support, get_next_post, send_next_post, send_end_message
+
+
+async def on_start_message(message: Message, state: FSMContext):
+    user_tg_id = message.from_user.id
+    user_is_admin = user_tg_id in ADMINS
+    chat_id = message.chat.id
+    current_state = await state.get_state()
+    await update_last_visit_time(user_tg_id)
+
+    if current_state == RecommendationsStates.RECOMMENDATIONS_FEED.state:
+        mode = Modes.RECOMMENDATIONS
+        next_post = await get_next_post(user_tg_id, mode)
+        keyboard = recommendations_reply_keyboards.recommendations_control_keyboard
+
+    elif current_state == CategoriesStates.CATEGORIES_FEED.state:
+        user_categories = await get_user_categories(user_tg_id)
+        if not user_categories:
+            return await message.answer('Сперва нужно добавить хотя бы одну категорию')
+        keyboard = categories_reply_keyboards.categories_control_keyboard
+        mode = Modes.CATEGORIES
+        next_post = await get_next_post(user_tg_id, mode)
+
+    elif current_state == PersonalStates.PERSONAL_FEED.state:
+        user_channels = await get_user_channels_usernames(user_tg_id)
+        if not user_channels:
+            return await message.answer('Сперва нужно добавить хотя бы один канал')
+        keyboard = personal_reply_keyboards.personal_control_keyboard
+        mode = Modes.PERSONAL
+        next_post = await get_next_post(user_tg_id, mode)
+    else:
+        return None
+
+    if user_is_admin and current_state != PersonalStates.PERSONAL_FEED.state:
+        keyboard = recommendations_reply_keyboards.recommendations_admin_control_keyboard
+
+        if current_state == CategoriesStates.CATEGORIES_FEED.state:
+            keyboard = categories_reply_keyboards.categories_admin_control_keyboard
+
+    if next_post:
+        await message.answer(answers.PRE_SCROLL_MESSAGE_TEXT, reply_markup=keyboard)
+        await send_next_post(user_tg_id, chat_id, mode, next_post)
+    else:
+        await send_end_message(user_tg_id, chat_id, mode)
+
+
+async def on_skip_message(message: Message, state: FSMContext):
+    user_tg_id = message.from_user.id
+    chat_id = message.chat.id
+    current_state = await state.get_state()
+    await update_last_visit_time(user_tg_id)
+
+    if current_state == RecommendationsStates.RECOMMENDATIONS_FEED.state:
+        mode = Modes.RECOMMENDATIONS
+        result = await send_next_post(user_tg_id, chat_id, mode)
+    elif current_state == CategoriesStates.CATEGORIES_FEED.state:
+        mode = Modes.CATEGORIES
+        result = await send_next_post(user_tg_id, chat_id, mode)
+    elif current_state == PersonalStates.PERSONAL_FEED.state:
+        mode = Modes.PERSONAL
+        result = await send_next_post(user_tg_id, chat_id, mode)
+    else:
+        return None
+
+    if result == errors.NO_POST:
+        await send_end_message(user_tg_id, chat_id, mode)
 
 
 async def on_admin_panel_message(message: Message, state: FSMContext):
@@ -34,7 +103,7 @@ async def on_like_button_click(callback: CallbackQuery):
     user_tg_id = callback.from_user.id
     message = callback.message
 
-    mark_type = MarkTypes.LIKE
+    mark_type_id = MarkTypes.LIKE
     post = None
 
     if post_type == PostTypes.PREMIUM:
@@ -50,56 +119,53 @@ async def on_like_button_click(callback: CallbackQuery):
             message_ids = list(range(message.reply_to_message.message_id, message.message_id + 1))
             return await bot_client.delete_messages(chat_id, message_ids)
         else:
-            return await message.delete()
+            message_ids = message.message_id
+            return await bot_client.delete_messages(chat_id, message_ids)
 
     new_likes = post.likes
     new_dislikes = post.dislikes
 
     if post_type == PostTypes.PREMIUM:
         premium_viewed_post = await get_viewed_premium_post(user_tg_id, post_id)
-        mark_type = premium_viewed_post.mark_type_id
+        mark_type_id = premium_viewed_post.mark_type_id
 
-        if mark_type == MarkTypes.DISLIKE or mark_type == MarkTypes.NEUTRAL:
+        if mark_type_id == MarkTypes.DISLIKE or mark_type_id == MarkTypes.NEUTRAL:
             await update_viewed_premium_post_mark_type(user_tg_id, post_id, MarkTypes.LIKE)
-            await update_premium_post_likes(post_id)
-            new_likes += 1
-        if mark_type == MarkTypes.DISLIKE:
-            await update_premium_post_dislikes(post_id, increment=False)
-            new_dislikes -= 1
+            new_likes = await update_premium_post_likes(post_id)
+        if mark_type_id == MarkTypes.DISLIKE:
+            new_dislikes = await update_premium_post_dislikes(post_id, increment=False)
 
     elif post_type == PostTypes.CATEGORY:
         category_viewed_post = await get_viewed_category_post(user_tg_id, post_id)
-        mark_type = category_viewed_post.mark_type_id
+        mark_type_id = category_viewed_post.mark_type_id
 
-        if mark_type == MarkTypes.DISLIKE or mark_type == MarkTypes.NEUTRAL:
+        if mark_type_id == MarkTypes.DISLIKE or mark_type_id == MarkTypes.NEUTRAL:
             await update_viewed_category_post_mark_type(user_tg_id, post_id, MarkTypes.LIKE)
-            await update_category_post_likes(post_id)
-            new_likes += 1
-        if mark_type == MarkTypes.DISLIKE:
-            await update_category_post_dislikes(post_id, increment=False)
-            new_dislikes -= 1
+            new_likes = await update_category_post_likes(post_id)
+        if mark_type_id == MarkTypes.DISLIKE:
+            new_dislikes = await update_category_post_dislikes(post_id, increment=False)
 
     elif post_type == PostTypes.PERSONAL:
         personal_viewed_post = await get_viewed_personal_post(user_tg_id, post_id)
-        mark_type = personal_viewed_post.mark_type_id
+        mark_type_id = personal_viewed_post.mark_type_id
 
-        if mark_type == MarkTypes.DISLIKE or mark_type == MarkTypes.NEUTRAL:
+        if mark_type_id == MarkTypes.DISLIKE or mark_type_id == MarkTypes.NEUTRAL:
             await update_viewed_personal_post_mark_type(user_tg_id, post_id, MarkTypes.LIKE)
-            await update_personal_post_likes(post_id)
-            new_likes += 1
-        if mark_type == MarkTypes.DISLIKE:
-            await update_personal_post_dislikes(post_id, increment=False)
-            new_dislikes -= 1
+            new_likes = await update_personal_post_likes(post_id)
+        if mark_type_id == MarkTypes.DISLIKE:
+            new_dislikes = await update_personal_post_dislikes(post_id, increment=False)
 
     keyboard = build_reactions_inline_keyboard(new_likes, new_dislikes, post_type, post_id)
 
-    if mark_type == MarkTypes.LIKE:
+    if mark_type_id == MarkTypes.LIKE:
         if new_likes != old_likes or new_dislikes != old_dislikes:
             await bot_client.edit_message_reply_markup(chat_id, message_id, reply_markup=keyboard)
             return await callback.answer('Обновлено')
         else:
             return await callback.answer('Вы можете лайкнуть пост единожды')
 
+    await update_daily_likes()
+    await update_daily_dislikes(increment=False)
     await bot_client.edit_message_reply_markup(chat_id, message_id, reply_markup=keyboard)
     await callback.answer('Лайк')
 
@@ -116,7 +182,7 @@ async def on_dislike_button_click(callback: CallbackQuery):
     message_id = callback.message.message_id
     user_tg_id = callback.from_user.id
 
-    mark_type = None
+    mark_type_id = None
     post = None
 
     if post_type == PostTypes.PREMIUM:
@@ -132,55 +198,55 @@ async def on_dislike_button_click(callback: CallbackQuery):
             message_ids = list(range(message.reply_to_message.message_id, message.message_id + 1))
             return await bot_client.delete_messages(chat_id, message_ids)
         else:
-            return await message.delete()
+            message_ids = message.message_id
+            return await bot_client.delete_messages(chat_id, message_ids)
 
     new_likes = post.likes
     new_dislikes = post.dislikes
 
     if post_type == PostTypes.PREMIUM:
-        mark_type = await get_viewed_premium_post(user_tg_id, post_id)
+        category_viewed_post = await get_viewed_premium_post(user_tg_id, post_id)
+        mark_type_id = category_viewed_post.mark_type_id
 
-        if mark_type == MarkTypes.LIKE or mark_type == MarkTypes.NEUTRAL:
+        if mark_type_id == MarkTypes.LIKE or mark_type_id == MarkTypes.NEUTRAL:
             await update_viewed_premium_post_mark_type(user_tg_id, post_id, MarkTypes.DISLIKE)
-            await update_premium_post_dislikes(post_id)
-            new_dislikes += 1
-        if mark_type == MarkTypes.LIKE:
-            await update_premium_post_likes(post_id, increment=False)
-            new_likes -= 1
+            new_dislikes = await update_premium_post_dislikes(post_id)
+        if mark_type_id == MarkTypes.LIKE:
+            new_likes = await update_premium_post_likes(post_id, increment=False)
 
     elif post_type == PostTypes.CATEGORY:
-        mark_type = await get_viewed_category_post(user_tg_id, post_id)
+        category_viewed_post = await get_viewed_category_post(user_tg_id, post_id)
+        mark_type_id = category_viewed_post.mark_type_id
 
-        if mark_type == MarkTypes.LIKE or mark_type == MarkTypes.NEUTRAL:
+        if mark_type_id == MarkTypes.LIKE or mark_type_id == MarkTypes.NEUTRAL:
             await update_viewed_category_post_mark_type(user_tg_id, post_id, MarkTypes.DISLIKE)
-            await update_category_post_dislikes(post_id)
-            new_dislikes += 1
+            new_dislikes = await update_category_post_dislikes(post_id)
 
-        if mark_type == MarkTypes.LIKE:
-            await update_category_post_likes(post_id, increment=False)
-            new_likes -= 1
+        if mark_type_id == MarkTypes.LIKE:
+            new_likes = await update_category_post_likes(post_id, increment=False)
 
     elif post_type == PostTypes.PERSONAL:
-        mark_type = await get_viewed_personal_post(user_tg_id, post_id)
+        category_viewed_post = await get_viewed_personal_post(user_tg_id, post_id)
+        mark_type_id = category_viewed_post.mark_type_id
 
-        if mark_type == MarkTypes.LIKE or mark_type == MarkTypes.NEUTRAL:
+        if mark_type_id == MarkTypes.LIKE or mark_type_id == MarkTypes.NEUTRAL:
             await update_viewed_personal_post_mark_type(user_tg_id, post_id, MarkTypes.DISLIKE)
-            await update_personal_post_dislikes(post_id)
-            new_dislikes += 1
+            new_dislikes = await update_personal_post_dislikes(post_id)
 
-        if mark_type == MarkTypes.LIKE:
-            await update_personal_post_likes(post_id, increment=False)
-            new_likes -= 1
+        if mark_type_id == MarkTypes.LIKE:
+            new_likes = await update_personal_post_likes(post_id, increment=False)
 
     keyboard = build_reactions_inline_keyboard(new_likes, new_dislikes, post_type, post_id)
 
-    if mark_type == MarkTypes.DISLIKE:
+    if mark_type_id == MarkTypes.DISLIKE:
         if new_likes != old_likes or new_dislikes != old_dislikes:
             await bot_client.edit_message_reply_markup(chat_id, message_id, reply_markup=keyboard)
             return await callback.answer('Обновлено')
         else:
             return await callback.answer('Вы можете дизлайкнуть пост единожды')
 
+    await update_daily_dislikes()
+    await update_daily_likes(increment=False)
     await bot_client.edit_message_reply_markup(chat_id, message_id, reply_markup=keyboard)
     await callback.answer('Дизлайк')
 
@@ -205,25 +271,27 @@ async def on_report_button_click(callback: CallbackQuery):
         viewed_post = await get_viewed_personal_post(user_tg_id, post_id)
 
     if viewed_post:
-        if viewed_post.mark_type_id == MarkTypes.REPORT:
+        mark_type_id = MarkTypes.REPORT
+        if viewed_post.mark_type_id == mark_type_id:
             return await callback.answer('На пост можно пожаловаться единожды')
 
         if hasattr(viewed_post, 'personal_channel_id'):
-            await update_viewed_personal_post_mark_type(user_tg_id, post_id, MarkTypes.REPORT)
+            await update_viewed_personal_post_mark_type(user_tg_id, post_id, mark_type_id)
         elif hasattr(viewed_post, 'premium_channel_id'):
-            await update_viewed_premium_post_mark_type(user_tg_id, post_id, MarkTypes.REPORT)
+            await update_viewed_premium_post_mark_type(user_tg_id, post_id, mark_type_id)
         elif hasattr(viewed_post, 'category_channel_id'):
-            await update_viewed_category_post_mark_type(user_tg_id, post_id, MarkTypes.REPORT)
+            await update_viewed_category_post_mark_type(user_tg_id, post_id, mark_type_id)
 
         await callback.answer('Пост отправлен на рассмотрение')
     else:
         await callback.answer('Пост уже удалён')
 
     if hasattr(message.reply_to_message, 'message_id'):
-        message_ids = list(range(message.reply_to_message.message_id, message.message_id + 1))
+        message_ids = list(range(message.reply_to_message.message_id - 1, message.message_id + 1))
         await bot_client.delete_messages(chat_id, message_ids)
     else:
-        await message.delete()
+        message_ids = message.message_id
+        await bot_client.delete_messages(chat_id, message_ids)
 
     await send_post_to_support(SUPPORT_CHAT_ID, viewed_post)
 
@@ -276,5 +344,17 @@ def register_generals_handlers(dp: Dispatcher):
     dp.register_callback_query_handler(
         on_delete_post_button_click,
         Text(startswith=callbacks.DELETE_POST),
+        state='*'
+    )
+
+    dp.register_message_handler(
+        on_start_message,
+        Text(equals=general_reply_buttons_texts.START_BUTTON_TEXT),
+        state='*',
+    )
+
+    dp.register_message_handler(
+        on_skip_message,
+        Text(equals=general_reply_buttons_texts.SKIP_BUTTON_TEXT),
         state='*'
     )

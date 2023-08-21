@@ -52,7 +52,6 @@ async def get_next_post(user_tg_id: int, mode: Modes):
         for post in categories_best_posts:
             posts.append(post)
         next_post = choose_post(posts)
-        print(next_post)
     return next_post
 
 
@@ -136,6 +135,7 @@ async def send_next_post(user_tg_id: int, chat_id: int, mode: Modes, post=None):
                         media_group.append(InputMediaVideo(path))
                 msg = await bot_client.send_media_group(chat_id, media_group)
                 await bot_client.send_message(chat_id, message_text, entities=entities, reply_markup=keyboard, reply_to_message_id=msg[0].id)
+        await update_users_views_per_day(user_tg_id)
         return True
     except Exception as err:
         await bot_client.send_message(chat_id, 'Упс. Не получилось получить этот пост 😬', reply_markup=keyboard)
@@ -189,20 +189,19 @@ async def add_channels(channels: str, user_tg_id: int, mode: Modes, category_nam
 
         if mode == Modes.RECOMMENDATIONS:
             result = await create_premium_channel(channel_tg_id, channel_username, coefficient)
-            if result:
+            if result and result != errors.DUPLICATE_ERROR_TEXT:
                 to_parse.append(channel_username)
         elif mode == Modes.CATEGORIES:
             category_id = await get_category_id(category_name)
             result = await create_category_channel(channel_tg_id, channel_username, category_id, coefficient)
-            if result:
+            if result and result != errors.DUPLICATE_ERROR_TEXT:
                 to_parse.append(channel_username)
         elif mode == Modes.PERSONAL:
             r = await create_personal_channel(channel_tg_id, channel_username, coefficient)
-            if r == errors.DUPLICATE_ERROR_TEXT:
-                result = await create_user_channel(user_tg_id, channel_tg_id)
-            elif r:
-                result = await create_user_channel(user_tg_id, channel_tg_id)
+            if r and r != errors.DUPLICATE_ERROR_TEXT:
                 to_parse.append(channel_username)
+
+            result = await create_user_channel(user_tg_id, channel_tg_id)
 
         if result == errors.DUPLICATE_ERROR_TEXT:
             already_added.append(f'@{channel_username}')
@@ -291,7 +290,7 @@ def remove_file_or_folder(path):
         except OSError:
             shutil.rmtree(path)
     else:
-        print("Path not found")
+        logger.error("Path not found")
 
 
 async def send_post_to_support(chat_id: str | int, post):
