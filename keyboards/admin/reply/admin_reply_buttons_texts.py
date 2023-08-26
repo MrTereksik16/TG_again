@@ -10,7 +10,6 @@ LIST_CATEGORIES_BUTTON_TEXT = 'Список категорий'
 DELETE_COEFFICIENTS = 'Удалить коэффициенты'
 ADD_COEFFICIENTS = 'Добавить коэффициенты'
 LIST_COEFFICIENTS = 'Список коэффициентов'
-
-
+LIST_STATISTIC = 'Статистика'
 
 

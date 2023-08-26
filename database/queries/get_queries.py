@@ -1,8 +1,9 @@
-from sqlalchemy import text
+from sqlalchemy import text, func, cast, Date
 from config.logging_config import logger
 from database.create_db import Session
-from database.models import User, PersonalChannel, UserChannel, PremiumChannel, CategoryChannel, Category, UserCategory, PersonalPost, PremiumPost, CategoryPost, Coefficient
-from utils.custom_types import MarkTypes
+from database.models import User, PersonalChannel, UserChannel, PremiumChannel, CategoryChannel, Category, UserCategory, PersonalPost, PremiumPost, \
+    CategoryPost, Coefficient, DailyStatistic
+from utils.custom_types import MarkTypes, Statistic
 
 
 async def get_user(user_tg_id: int) -> User:
@@ -368,7 +369,8 @@ async def get_all_categories_channels() -> list:
     session = Session()
     categories_channels = []
     try:
-        records = session.query(CategoryChannel.channel_username, Category.emoji, Category.name).join(Category, CategoryChannel.category_id == Category.id)
+        records = session.query(CategoryChannel.channel_username, Category.emoji, Category.name).join(Category,
+                                                                                                      CategoryChannel.category_id == Category.id)
         for channel in records:
             categories_channels.append(channel)
     except Exception as err:
@@ -426,3 +428,18 @@ async def get_coefficients() -> list:
     finally:
         session.close()
         return coefficients
+
+
+async def get_statistic() -> Statistic | None:
+    session = Session()
+    statistic = None
+    try:
+        daily_statistic: DailyStatistic = session.query(DailyStatistic).filter(DailyStatistic.date_today == func.current_date()).one()
+        total_users = session.query(User.id).count()
+        daily_users = session.query(User).filter(cast(User.visited_at, Date) == func.current_date()).count()
+        statistic = Statistic(total_users, daily_users, daily_statistic.likes, daily_statistic.dislikes, daily_statistic.new_users_amount)
+    except Exception as err:
+        logger.error(f'Ошибка при получении статистики: {err}')
+    finally:
+        session.close()
+        return statistic

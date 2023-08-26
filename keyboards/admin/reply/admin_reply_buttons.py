@@ -9,6 +9,7 @@ list_categories_button = KeyboardButton(LIST_CATEGORIES_BUTTON_TEXT)
 list_premium_channels_button = KeyboardButton(LIST_PREMIUM_CHANNELS_BUTTON_TEXT)
 list_category_channels_button = KeyboardButton(LIST_CATEGORIES_CHANNELS_BUTTON_TEXT)
 list_coefficients_button = KeyboardButton(LIST_COEFFICIENTS)
+list_statistic_button = KeyboardButton(LIST_STATISTIC)
 
 add_premium_channels_button = KeyboardButton(ADD_PREMIUM_CHANNELS_BUTTON_TEXT)
 add_category_channels_button = KeyboardButton(ADD_CATEGORY_CHANNELS_BUTTON_TEXT)

@@ -11,11 +11,12 @@ from database.queries.get_queries import get_premium_channel, get_category_chann
 from database.queries.create_queries import create_premium_post, create_category_post, create_personal_post
 from utils.custom_types import Post
 
-app = Client('update_session', config.API_ID, config.API_HASH, phone_number=config.PHONE_NUMBER)
+app = Client('update_session', config.BOT_API_ID, config.BOT_API_HASH, phone_number=config.BOT_PHONE_NUMBER)
 
 
 async def on_message(client: Client, message: Message):
     from utils.helpers import clean_channel_id
+    print('work')
     channel = await client.get_chat(message.text)
     all_channels_ids = await get_all_channels_ids()
     channel_id = clean_channel_id(channel.id)
@@ -33,10 +34,8 @@ async def on_message(client: Client, message: Message):
 
     try:
         await client.get_chat_member(channel_username, 'me')
-    except Exception as err:
-        res = await client.join_chat(channel_username)
-        logger.error(res)
-        logger.error(f'Ошибка при вступления в канал: {err}')
+    except Exception:
+        await client.join_chat(channel_username)
 
     client.add_handler(MessageHandler(update_post, filters.chat(message.text)))
 
@@ -91,6 +90,7 @@ async def update_post(client: Client, message: Message):
             remove_file_or_folder(media_path)
     except Exception as err:
         logger.error(f'Ошибка при обновлении постов: {err}')
+
 
 app.add_handler(MessageHandler(on_message, filters.chat('me')))
 app.run()

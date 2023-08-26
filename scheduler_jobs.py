@@ -4,7 +4,6 @@ from database.queries.update_queries import update_users_views_per_day
 
 
 async def reset_stats():
-    print('work')
     await update_users_views_per_day(reset=True)
     await create_daily_statistic()
 

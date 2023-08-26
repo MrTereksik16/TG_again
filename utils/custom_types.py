@@ -54,3 +54,18 @@ class Post:
         self.message_entities = message_entities
         self.message_media_path = message_media_path
         self.channel_username = channel_username
+
+
+class Statistic:
+    total_users = 0
+    daily_users = 0
+    daily_likes = 0
+    daily_dislikes = 0
+    user_growth = 0
+
+    def __init__(self, total_users: int, daily_users: int, daily_likes: int, daily_dislikes: int, user_growth: int):
+        self.total_users = total_users
+        self.daily_users = daily_users
+        self.daily_likes = daily_likes
+        self.daily_dislikes = daily_dislikes
+        self.user_growth = user_growth

@@ -2,20 +2,23 @@ from aiogram import Dispatcher
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
 from aiogram.types import Message, ContentType
+from pyrogram import Client
 from pyrogram.types import InlineKeyboardMarkup, CallbackQuery, InlineKeyboardButton, ReplyKeyboardRemove
 import callbacks
 from create_bot import bot_client
 from database.queries.delete_queries import delete_category, delete_premium_channel, delete_category_channel, delete_coefficient
-from database.queries.get_queries import get_categories, get_all_premium_channels, get_all_categories_channels, get_coefficients, get_category_channel
+from database.queries.get_queries import get_categories, get_all_premium_channels, get_all_categories_channels, get_coefficients, get_statistic
 from database.queries.create_queries import create_premium_posts, create_category_posts, create_category, create_coefficient
 from keyboards.general.helpers import build_reply_buttons, build_reply_keyboard
 from utils.consts import answers, errors
 from parse import parse
 from store.states import AdminPanelStates
 from utils.helpers import add_channels, convert_list_of_items_to_string, reset_and_switch_state, remove_file_or_folder
-from keyboards import admin_reply_buttons_texts, admin_reply_keyboards, general_reply_keyboards, general_reply_buttons_texts, general_reply_buttons
+from keyboards import admin_inline_keyboards, admin_reply_buttons_texts, admin_reply_keyboards, general_reply_keyboards, general_reply_buttons_texts, \
+    general_reply_buttons
 from utils.custom_types import Modes
-from config.config import MEDIA_DIR
+from config import config
+from config.logging_config import logger
 
 
 async def on_add_premium_channels_message(message: Message, state: FSMContext):
@@ -51,8 +54,6 @@ async def on_premium_channels_message(message: Message, state: FSMContext):
     if message.text == general_reply_buttons_texts.CANCEL_BUTTON_TEXT:
         await reset_and_switch_state(state, AdminPanelStates.ADMIN_PANEL)
         return await message.answer(answers.ADMIN_PANEL_MESSAGE_TEXT, reply_markup=admin_reply_keyboards.admin_panel_control_keyboard)
-
-
 
     coefficient = (await state.get_data())['coefficient']
     keyboard = admin_reply_keyboards.admin_panel_control_keyboard
@@ -147,8 +148,9 @@ async def on_category_channels_message(message: Message, state: FSMContext):
     for i, channel_username in enumerate(to_parse, start=1):
         await delete_premium_channel(channel_username)
         posts = await parse(channel_username, chat_id, mode=mode)
+        print(posts)
         if not posts:
-            await bot_client.send_message(chat_id, 'Канал пуст', reply_markup=admin_reply_keyboards.admin_panel_control_keyboard)
+            await bot_client.send_message(chat_id, f'Не удалось получить посты с канала @{channel_username}', reply_markup=keyboard)
         else:
             if i == to_parse_len:
                 keyboard = admin_reply_keyboards.admin_panel_control_keyboard
@@ -157,7 +159,7 @@ async def on_category_channels_message(message: Message, state: FSMContext):
             if result:
                 await bot_client.send_message(chat_id, f'Посты с канала @{channel_username} получены 👍', reply_markup=keyboard)
             else:
-                await bot_client.send_message(chat_id, f'Не удалось получить посты с канала @{channel_username}', reply_markup=keyboard)
+                await bot_client.send_message(chat_id, 'Канал пуст', reply_markup=admin_reply_keyboards.admin_panel_control_keyboard)
 
 
 async def on_list_premium_channels_message(message: Message):
@@ -315,7 +317,7 @@ async def on_delete_premium_button_click(callback: CallbackQuery, state: FSMCont
         await message.edit_reply_markup(reply_markup=keyboard)
 
     if result:
-        remove_file_or_folder(MEDIA_DIR + channel_username)
+        remove_file_or_folder(config.MEDIA_DIR + channel_username)
         await callback.answer('Канал успешно удалён')
 
 
@@ -345,7 +347,7 @@ async def on_category_channel_message(message: Message, state: FSMContext):
         channel_username = message.text.split(' | ')[0]
         result = await delete_category_channel(channel_username)
         if result:
-            remove_file_or_folder(MEDIA_DIR + channel_username)
+            remove_file_or_folder(config.MEDIA_DIR + channel_username)
             buttons_texts.remove(message.text)
             if not buttons_texts:
                 await reset_and_switch_state(state, AdminPanelStates.ADMIN_PANEL)
@@ -451,6 +453,39 @@ async def on_delete_coefficient_button_click(callback: CallbackQuery, state: FSM
 
     if result:
         await callback.answer('Коэффициент успешно удалён')
+
+
+async def on_list_statistic_message(message: Message, state: FSMContext):
+    statistic = await get_statistic()
+    answer = f'<i>Всего пользователей</i>: {statistic.total_users}\n<i>Новых пользователей</i>: {statistic.user_growth} 🆕\n<i>Пользовались сегодня</i>: {statistic.daily_users} 🔥\n<i>Лайков за сегодня</i>: {statistic.daily_likes} ❤\n<i>Дизлайков за сегодня</i>: {statistic.daily_dislikes} 👎\n'
+    await message.answer(answer, reply_markup=admin_inline_keyboards.admin_recent_keyboard)
+    await state.update_data(statistic=answer)
+
+
+async def on_forward_statistic_button_click(callback: CallbackQuery, state: FSMContext):
+    chat_id = callback.message.chat.id
+    await bot_client.send_message(chat_id,
+                                  'Введите <b>ссылку в формате @имя_пользователя</b> получателя статистики',
+                                  reply_markup=general_reply_keyboards.general_cancel_keyboard)
+    await state.set_state(AdminPanelStates.GET_PHONE_NUMBER)
+    await callback.answer()
+
+
+async def on_receiver_phone_number_message(message: Message, state: FSMContext):
+    if message.text == general_reply_buttons_texts.CANCEL_BUTTON_TEXT:
+        await state.set_state(AdminPanelStates.ADMIN_PANEL)
+        await message.answer(answers.ADMIN_PANEL_MESSAGE_TEXT, reply_markup=admin_reply_keyboards.admin_panel_control_keyboard)
+    bot = await bot_client.get_me()
+    answer = f'<b>Статистика {bot.first_name}</b>:\n\n'
+    answer += f'{(await state.get_data())["statistic"]}\n\n'
+    answer += f'{answers.RATES_MESSAGE_TEXT}'
+
+    try:
+        await bot_client.send_message(message.text, answer)
+        await message.answer('Статистика отправлена', reply_markup=admin_reply_keyboards.admin_panel_control_keyboard)
+    except Exception as err:
+        logger.error(f'Ошибка при отправлении статистики:{err}')
+        await message.answer('Неверная или несуществующая ссылка пользователя')
 
 
 def register_admin_handlers(dp: Dispatcher):
@@ -585,4 +620,21 @@ def register_admin_handlers(dp: Dispatcher):
         on_list_coefficients_message,
         Text(admin_reply_buttons_texts.LIST_COEFFICIENTS),
         state=AdminPanelStates.ADMIN_PANEL
+    )
+
+    dp.register_message_handler(
+        on_list_statistic_message,
+        Text(admin_reply_buttons_texts.LIST_STATISTIC),
+        state=AdminPanelStates.ADMIN_PANEL
+    )
+
+    dp.register_callback_query_handler(
+        on_forward_statistic_button_click,
+        Text(callbacks.FORWARD),
+        state='*'
+    )
+
+    dp.register_message_handler(
+        on_receiver_phone_number_message,
+        state=AdminPanelStates.GET_PHONE_NUMBER
     )

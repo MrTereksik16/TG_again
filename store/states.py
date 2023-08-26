@@ -24,6 +24,7 @@ class AdminPanelStates(StatesGroup):
     GET_CATEGORY_CHANNELS = State()
     GET_CHANNELS_COEFFICIENT = State()
     GET_COEFFICIENTS = State()
+    GET_PHONE_NUMBER = State()
 
     DELETE_CATEGORIES_CHANNELS = State()
     DELETE_CATEGORIES = State()

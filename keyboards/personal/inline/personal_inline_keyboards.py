@@ -5,4 +5,4 @@ add_user_channels_buttons = [
     [add_user_channels_button]
 ]
 
-add_user_channels_inline_keyboard = InlineKeyboardMarkup(add_user_channels_buttons)
+add_user_channels_keyboard = InlineKeyboardMarkup(add_user_channels_buttons)

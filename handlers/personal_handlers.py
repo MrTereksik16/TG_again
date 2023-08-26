@@ -69,8 +69,9 @@ async def on_personal_channels_message(message: Message, state: FSMContext):
     to_parse_len = len(to_parse)
     for i, channel_username in enumerate(to_parse, start=1):
         posts = await parse(channel_username, chat_id, mode=mode)
+        print(posts)
         if not posts:
-            await bot_client.send_message(chat_id, 'Канал пуст', reply_markup=personal_reply_keyboards.personal_start_control_keyboard)
+            await bot_client.send_message(chat_id, f'Не удалось получить посты с канала {channel_username}', reply_markup=keyboard)
         else:
             if i == to_parse_len:
                 keyboard = personal_reply_keyboards.personal_start_control_keyboard
@@ -80,7 +81,7 @@ async def on_personal_channels_message(message: Message, state: FSMContext):
 
                 await bot_client.send_message(chat_id, f'Посты с канала @{channel_username} получены 👍', reply_markup=keyboard)
             else:
-                await bot_client.send_message(chat_id, f'Не удалось получить посты с канала {channel_username}', reply_markup=keyboard)
+                await bot_client.send_message(chat_id, 'Канал пуст', reply_markup=personal_reply_keyboards.personal_start_control_keyboard)
 
 
 async def on_list_channels_message(message: Message):
@@ -89,7 +90,7 @@ async def on_list_channels_message(message: Message):
     channels_usernames = []
     if not channels:
         await message.answer('Список ваших каналов пуст.',
-                             reply_markup=personal_inline_keyboards.add_user_channels_inline_keyboard)
+                             reply_markup=personal_inline_keyboards.add_user_channels_keyboard)
     else:
         for channel in channels:
             channels_usernames.append(f'@{channel}')
@@ -103,7 +104,7 @@ async def on_delete_user_channel_message(message: Message, state: FSMContext):
 
     if not channels_usernames:
         return await message.answer('Список ваших каналов пуст',
-                                    reply_markup=personal_inline_keyboards.add_user_channels_inline_keyboard)
+                                    reply_markup=personal_inline_keyboards.add_user_channels_keyboard)
     buttons = []
     for channel_username in channels_usernames:
         callback_data = f'{callbacks.DELETE_USER_CHANNEL}:{channel_username}'
@@ -133,7 +134,7 @@ async def on_delete_user_channel_button_click(callback: CallbackQuery, state: FS
         keyboard = InlineKeyboardMarkup(buttons)
 
         if not buttons:
-            await msg.edit_text('Список ваших каналов пуст', reply_markup=personal_inline_keyboards.add_user_channels_inline_keyboard)
+            await msg.edit_text('Список ваших каналов пуст', reply_markup=personal_inline_keyboards.add_user_channels_keyboard)
         else:
             await msg.edit_reply_markup(reply_markup=keyboard)
         await callback.answer('Канал успешно удалён из списка')

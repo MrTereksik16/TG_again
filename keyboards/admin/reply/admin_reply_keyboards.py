@@ -10,6 +10,7 @@ control_buttons = [
     [list_category_channels_button],
     [list_categories_button],
     [list_coefficients_button],
+    [list_statistic_button],
     [delete_premium_channels_button],
     [delete_category_channels_button],
     [delete_general_category_button],
