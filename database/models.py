@@ -254,8 +254,3 @@ class DailyStatistic(Base):
 
     def __repr__(self):
         return f'<DailyStatistic(date_today={self.date_today}, new_users_amount={self.new_users_amount}, likes={self.likes},dislikes={self.dislikes})>'
-
-
-# Пересоздаёт бд
-# Base.metadata.drop_all(engine, checkfirst=True)
-# Base.metadata.create_all(engine)

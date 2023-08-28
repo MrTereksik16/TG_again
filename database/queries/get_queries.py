@@ -380,6 +380,20 @@ async def get_all_categories_channels() -> list:
         return categories_channels
 
 
+async def get_all_personal_channels() -> list[PersonalChannel]:
+    session = Session()
+    channels = []
+    try:
+        records = session.query(PersonalChannel).all()
+        for channel in records:
+            channels.append(channel)
+    except Exception as err:
+        logger.error(f'Ошибка при получении статистики: {err}')
+    finally:
+        session.close()
+        return channels
+
+
 async def get_category_id(category_name) -> int | None:
     session = Session()
     category_id = None

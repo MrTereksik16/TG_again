@@ -2,12 +2,14 @@ import os
 import pickle
 import random
 import shutil
+import time
 from re import match, sub
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State
 from pyrogram import Client
-from pyrogram.types import InputMediaPhoto, InputMediaVideo, Message
 from pyrogram.enums import ChatAction
+from pyrogram.types import Message
+from pyrogram.types import InputMediaPhoto, InputMediaVideo
 from config.config import ADMINS
 from create_bot import bot_client
 from database.queries.create_queries import *
@@ -17,7 +19,7 @@ from keyboards.general.helpers import build_reactions_inline_keyboard, build_del
 from keyboards.general.inline.general_inline_buttons_texts import LIKE_BUTTON_TEXT, DISLIKE_BUTTON_TEXT, REPORT_BUTTON_TEXT
 from utils.consts import answers, errors
 from keyboards import personal_reply_keyboards, recommendations_reply_keyboards, categories_reply_keyboards
-from utils.custom_types import Modes, PostTypes, AddChannelsResult
+from utils.custom_types import Modes, ChannelPostTypes, AddChannelsResult
 from pyrogram.types import ReplyKeyboardRemove
 from PIL import Image
 
@@ -82,8 +84,9 @@ async def send_next_post(user_tg_id: int, chat_id: int, mode: Modes, post=None):
     dislikes = post.dislikes
     post_id = post.id
     channel_username = post.channel_username
-    message_text = f'{post.text}\n\nПост с канала @{channel_username}'
-    print(message_text)
+    message_text = f'{post.text or ""}\n\nПост с канала @{channel_username}'
+    message_text_len = len(message_text)
+
     if mode == Modes.CATEGORIES:
         category = post.name + post.emoji
         message_text += f'\nКатегория: {category}'
@@ -96,33 +99,42 @@ async def send_next_post(user_tg_id: int, chat_id: int, mode: Modes, post=None):
             if result == errors.DUPLICATE_ERROR_TEXT:
                 await update_user_viewed_premium_post_counter(user_tg_id, post_id)
 
-            keyboard = build_reactions_inline_keyboard(likes, dislikes, PostTypes.PREMIUM, post_id)
+            keyboard = build_reactions_inline_keyboard(likes, dislikes, ChannelPostTypes.PREMIUM, post_id)
         elif hasattr(post, 'category_channel_id'):
             result = await create_user_viewed_category_post(user_tg_id, post_id)
             if result == errors.DUPLICATE_ERROR_TEXT:
                 await update_user_viewed_category_post_counter(user_tg_id, post_id)
 
-            keyboard = build_reactions_inline_keyboard(likes, dislikes, PostTypes.CATEGORY, post_id)
+            keyboard = build_reactions_inline_keyboard(likes, dislikes, ChannelPostTypes.CATEGORY, post_id)
 
     elif mode == Modes.CATEGORIES:
         await create_user_viewed_category_post(user_tg_id, post_id)
-        keyboard = build_reactions_inline_keyboard(likes, dislikes, PostTypes.CATEGORY, post_id)
+        keyboard = build_reactions_inline_keyboard(likes, dislikes, ChannelPostTypes.CATEGORY, post_id)
 
     elif mode == Modes.PERSONAL:
         await create_user_viewed_personal_post(user_tg_id, post_id)
-        keyboard = build_reactions_inline_keyboard(likes, dislikes, PostTypes.PERSONAL, post_id)
+        keyboard = build_reactions_inline_keyboard(likes, dislikes, ChannelPostTypes.PERSONAL, post_id)
 
-    result_message_text =
     try:
+        logger.error(post)
         if not media_path:
-            await bot_client.send_message(chat_id, result_message_text, entities=entities, reply_markup=keyboard)
+            await bot_client.send_message(chat_id, message_text, entities=entities, reply_markup=keyboard)
         else:
             if media_path.endswith('.jpg'):
                 await bot_client.send_chat_action(chat_id, action=ChatAction.UPLOAD_PHOTO)
-                await bot_client.send_photo(chat_id, media_path, caption=result_message_text, caption_entities=entities, reply_markup=keyboard)
+                if message_text_len > 1024:
+                    message = await bot_client.send_photo(chat_id, media_path, caption=message_text)
+                    await bot_client.send_message(chat_id, text=message_text, entities=entities, reply_to_message_id=message[0].id, reply_markup=keyboard)
+                else:
+                    await bot_client.send_photo(chat_id, media_path, caption=message_text, caption_entities=entities, reply_markup=keyboard)
             elif media_path.endswith('.mp4'):
                 await bot_client.send_chat_action(chat_id, action=ChatAction.UPLOAD_VIDEO)
-                await bot_client.send_video(chat_id, media_path, caption=result_message_text, caption_entities=entities, reply_markup=keyboard)
+                if message_text_len > 1024:
+                    message = await bot_client.send_video(chat_id, media_path)
+                    await bot_client.send_message(chat_id, message_text, entities=entities, reply_markup=keyboard, reply_to_message_id=message[0].id)
+                else:
+                    await bot_client.send_video(chat_id, media_path, caption=message_text, caption_entities=entities, reply_markup=keyboard)
+
             elif os.path.isdir(media_path):
                 media_group = []
                 files = os.listdir(media_path)
@@ -136,16 +148,16 @@ async def send_next_post(user_tg_id: int, chat_id: int, mode: Modes, post=None):
                         path = os.path.join(media_path, file)
                         media_group.append(InputMediaVideo(path))
                 msg = await bot_client.send_media_group(chat_id, media_group)
-                await bot_client.send_message(chat_id, result_message_text, entities=entities, reply_markup=keyboard, reply_to_message_id=msg[0].id)
+                await bot_client.send_message(chat_id, message_text, entities=entities, reply_markup=keyboard, reply_to_message_id=msg[0].id)
         await update_users_views_per_day(user_tg_id)
         return True
     except Exception as err:
-        await bot_client.send_message(chat_id, 'Упс. Не получилось получить этот пост 😬', reply_markup=keyboard)
+        await bot_client.send_message(chat_id, 'Упс. Не получилось отправить этот пост 😬', reply_markup=keyboard)
         logger.error(f'Ошибка при отправлении поста пользователю: {err}')
         return False
 
 
-async def send_end_message(user_tg_id, chat_id, mode: Modes):
+async def send_end_message(user_tg_id: int, chat_id: int, mode: Modes):
     no_post_keyboard = ReplyKeyboardRemove()
     user_is_admin = user_tg_id in ADMINS
 
@@ -163,9 +175,10 @@ async def send_end_message(user_tg_id, chat_id, mode: Modes):
             no_post_keyboard = categories_reply_keyboards.categories_admin_start_control_keyboard
 
     await bot_client.send_message(chat_id, answers.POSTS_OVER, reply_markup=no_post_keyboard)
+    time.sleep(1)
 
 
-async def add_channels(channels: str, user_tg_id: int, mode: Modes, category_name='', coefficient: int = 1) -> AddChannelsResult:
+async def add_channels(channels: str, user_tg_id: int, channel_type: ChannelPostTypes, category_name='', coefficient: int = 1) -> AddChannelsResult:
     links = [link.strip() for link in channels.split(',') if link.strip()]
     to_parse = []
     added = []
@@ -189,16 +202,16 @@ async def add_channels(channels: str, user_tg_id: int, mode: Modes, category_nam
 
         result = None
 
-        if mode == Modes.RECOMMENDATIONS:
+        if channel_type == ChannelPostTypes.PREMIUM:
             result = await create_premium_channel(channel_tg_id, channel_username, coefficient)
             if result and result != errors.DUPLICATE_ERROR_TEXT:
                 to_parse.append(channel_username)
-        elif mode == Modes.CATEGORIES:
+        elif channel_type == ChannelPostTypes.CATEGORY:
             category_id = await get_category_id(category_name)
             result = await create_category_channel(channel_tg_id, channel_username, category_id, coefficient)
             if result and result != errors.DUPLICATE_ERROR_TEXT:
                 to_parse.append(channel_username)
-        elif mode == Modes.PERSONAL:
+        elif channel_type == ChannelPostTypes.PERSONAL:
             r = await create_personal_channel(channel_tg_id, channel_username, coefficient)
             if r and r != errors.DUPLICATE_ERROR_TEXT:
                 to_parse.append(channel_username)
@@ -214,9 +227,9 @@ async def add_channels(channels: str, user_tg_id: int, mode: Modes, category_nam
 
     answer = ''
 
-    if mode == Modes.CATEGORIES and added:
+    if channel_type == ChannelPostTypes.CATEGORY and added:
         answer += f'Были добавлены каналы с категорией `<code>{category_name}</code>`:\n{", ".join(added)}'
-    elif (mode == Modes.PERSONAL or mode == Modes.RECOMMENDATIONS) and added:
+    elif (channel_type == ChannelPostTypes.PERSONAL or channel_type == ChannelPostTypes.PREMIUM) and added:
         answer += f'Были добавлены каналы:\n{", ".join(added)}\n'
 
     if not_added:
@@ -305,11 +318,11 @@ async def send_post_to_support(chat_id: str | int, post):
     likes = format_number(post.likes)
     dislikes = format_number(post.dislikes)
 
-    post_type = PostTypes.PERSONAL
+    post_type = ChannelPostTypes.PERSONAL
     if hasattr(post, 'premium_channel_id'):
-        post_type = PostTypes.PREMIUM
+        post_type = ChannelPostTypes.PREMIUM
     elif hasattr(post, 'category_channel_id'):
-        post_type = PostTypes.CATEGORY
+        post_type = ChannelPostTypes.CATEGORY
 
     strings = [post_text, f'{LIKE_BUTTON_TEXT}: {likes}  {DISLIKE_BUTTON_TEXT}: {dislikes}  {REPORT_BUTTON_TEXT}: {reports}',
                f'Источник: `{post_type}`']
@@ -344,11 +357,11 @@ async def send_post_to_support(chat_id: str | int, post):
                                                                reply_to_message_id=media_group_message[0].id)
         report_message_id = report_message.id
 
-        if post_type == PostTypes.PREMIUM:
+        if post_type == ChannelPostTypes.PREMIUM:
             await update_category_channel_post_report_message_id(post_id, report_message_id)
-        elif post_type == PostTypes.CATEGORY:
+        elif post_type == ChannelPostTypes.CATEGORY:
             await update_category_channel_post_report_message_id(post_id, report_message_id)
-        elif post_type == PostTypes.PERSONAL:
+        elif post_type == ChannelPostTypes.PERSONAL:
             await update_personal_channel_post_report_message_id(post_id, report_message_id)
         return True
     except Exception as err:
@@ -373,3 +386,21 @@ def format_number(num):
         return num_str
     else:
         return str(num)
+
+
+def split_message(message_text, max_length: int):
+    if len(message_text) <= max_length:
+        return [message_text]
+    else:
+        words = message_text.split()
+        result = []
+        current_line = ""
+        for word in words:
+            if len(current_line + " " + word) > max_length:
+                result.append(current_line.strip())
+                current_line = word
+            else:
+                current_line += " " + word
+        if current_line:
+            result.append(current_line)
+        return result

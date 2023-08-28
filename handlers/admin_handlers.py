@@ -18,7 +18,7 @@ from store.states import AdminPanelStates
 from utils.helpers import add_channels, convert_list_of_items_to_string, reset_and_switch_state, remove_file_or_folder
 from keyboards import admin_inline_keyboards, admin_reply_buttons_texts, admin_reply_keyboards, general_reply_keyboards, general_reply_buttons_texts, \
     general_reply_buttons
-from utils.custom_types import Modes
+from utils.custom_types import Modes, ChannelPostTypes
 from config import config
 from config.logging_config import logger
 
@@ -60,15 +60,15 @@ async def on_premium_channels_message(message: Message, state: FSMContext):
     coefficient = (await state.get_data())['coefficient']
     keyboard = admin_reply_keyboards.admin_panel_control_keyboard
     chat_id = message.chat.id
-    mode = Modes.RECOMMENDATIONS
+    channel_type = ChannelPostTypes.PREMIUM
     channels = message.text
     user_tg_id = message.from_user.id
 
-    result_data = await add_channels(channels, user_tg_id, coefficient=coefficient, mode=mode)
+    result_data = await add_channels(channels, user_tg_id, coefficient=coefficient, channel_type=channel_type)
 
     answer = result_data.answer
     to_parse = result_data.to_parse
-
+    print(result_data.answer)
     await reset_and_switch_state(state, AdminPanelStates.ADMIN_PANEL)
 
     if not to_parse:
@@ -80,7 +80,7 @@ async def on_premium_channels_message(message: Message, state: FSMContext):
     to_parse_len = len(to_parse)
     for i, channel_username in enumerate(to_parse, start=1):
         await delete_category_channel(channel_username)
-        posts = await parse(channel_username, chat_id, mode=mode)
+        posts = await parse(channel_username, chat_id=chat_id, channel_type=channel_type)
         if posts == errors.NO_POSTS:
             await bot_client.send_message(chat_id, 'Канал пуст', reply_markup=admin_reply_keyboards.admin_panel_control_keyboard)
         else:
@@ -92,6 +92,7 @@ async def on_premium_channels_message(message: Message, state: FSMContext):
             else:
                 await bot_client.send_message(chat_id, f'Не удалось получить посты с канала @{channel_username}', reply_markup=keyboard)
         time.sleep(0.8)
+
 
 async def on_add_category_channels_message(message: Message, state: FSMContext):
     categories = await get_categories()
@@ -128,12 +129,12 @@ async def on_category_channels_message(message: Message, state: FSMContext):
         return await message.answer(answers.ADMIN_PANEL_MESSAGE_TEXT, reply_markup=keyboard)
 
     chat_id = message.chat.id
-    mode = Modes.CATEGORIES
+    channel_type = ChannelPostTypes.CATEGORY
     category = (await state.get_data())['category']
     channels = message.text
     user_tg_id = message.from_user.id
 
-    result = await add_channels(channels, user_tg_id, category_name=category, mode=mode)
+    result = await add_channels(channels, user_tg_id, category_name=category, channel_type=channel_type)
 
     answer = result.answer
     to_parse = result.to_parse
@@ -149,7 +150,7 @@ async def on_category_channels_message(message: Message, state: FSMContext):
     to_parse_len = len(to_parse)
     for i, channel_username in enumerate(to_parse, start=1):
         await delete_premium_channel(channel_username)
-        posts = await parse(channel_username, chat_id, mode=mode)
+        posts = await parse(channel_username, chat_id=chat_id, channel_type=channel_type)
 
         if posts == errors.NO_POSTS:
             await bot_client.send_message(chat_id, 'Канал пуст', reply_markup=admin_reply_keyboards.admin_panel_control_keyboard)

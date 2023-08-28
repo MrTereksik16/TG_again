@@ -3,7 +3,7 @@ from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
 from aiogram.types import Message
 from config.config import ADMINS
-from create_bot import bot
+from create_bot import bot, bot_client
 from database.queries.create_queries import create_user
 from database.queries.get_queries import get_user
 from database.queries.update_queries import update_last_visit_time, update_daily_new_users_amount
@@ -42,7 +42,6 @@ async def on_recommendations_feed_message(message: Message, state: FSMContext):
     user_tg_id = message.from_user.id
     user_is_admin = user_tg_id in ADMINS
     keyboard = recommendations_reply_keyboards.recommendations_admin_start_control_keyboard if user_is_admin else recommendations_reply_keyboards.recommendations_start_control_keyboard
-
     await state.set_state(RecommendationsStates.RECOMMENDATIONS_FEED)
     await message.answer(answers.RECOMMENDATIONS_FEED_MESSAGE_TEXT, reply_markup=keyboard)
 

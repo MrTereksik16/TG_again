@@ -17,7 +17,7 @@ from keyboards import personal_reply_keyboards
 from store.states import PersonalStates
 from utils.helpers import add_channels, reset_and_switch_state, remove_file_or_folder
 from keyboards import personal_reply_buttons_texts, general_reply_buttons_texts, general_reply_keyboards
-from utils.custom_types import Modes
+from utils.custom_types import Modes, ChannelPostTypes
 from config.config import MEDIA_DIR
 
 
@@ -53,9 +53,9 @@ async def on_personal_channels_message(message: Message, state: FSMContext):
     keyboard = personal_reply_keyboards.personal_start_control_keyboard
     chat_id = message.chat.id
     user_tg_id = message.from_user.id
-    mode = Modes.PERSONAL
+    channel_type = ChannelPostTypes.PERSONAL
     channels = message.text
-    result = await add_channels(channels, user_tg_id, mode=mode)
+    result = await add_channels(channels, user_tg_id, channel_type=channel_type)
 
     answer = result.answer
     to_parse = result.to_parse
@@ -70,7 +70,7 @@ async def on_personal_channels_message(message: Message, state: FSMContext):
 
     to_parse_len = len(to_parse)
     for i, channel_username in enumerate(to_parse, start=1):
-        posts = await parse(channel_username, chat_id, mode=mode)
+        posts = await parse(channel_username, chat_id=chat_id, channel_type=channel_type)
 
         if posts == errors.NO_POSTS:
             await bot_client.send_message(chat_id, 'Канал пуст', reply_markup=personal_reply_keyboards.personal_start_control_keyboard)

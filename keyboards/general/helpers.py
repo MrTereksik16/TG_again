@@ -2,7 +2,7 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyb
 import callbacks
 from database.models import PersonalPost, CategoryPost, PremiumPost
 from keyboards.general.inline import general_inline_buttons_texts
-from utils.custom_types import PostTypes
+from utils.custom_types import ChannelPostTypes
 
 
 def build_reply_buttons(texts: list[str | int]) -> list[KeyboardButton]:
@@ -24,7 +24,7 @@ def build_reply_keyboard(buttons: list[KeyboardButton], n_cols: int = 2, header_
     return ReplyKeyboardMarkup(menu, resize_keyboard=True)
 
 
-def build_reactions_inline_keyboard(likes: int, dislikes: int, post_type: PostTypes, post_id: int) -> InlineKeyboardMarkup:
+def build_reactions_inline_keyboard(likes: int, dislikes: int, post_type: ChannelPostTypes, post_id: int) -> InlineKeyboardMarkup:
     if likes >= 1000000:
         likes = f'{likes // 1000000}M'
     elif likes >= 1000:
@@ -46,7 +46,7 @@ def build_reactions_inline_keyboard(likes: int, dislikes: int, post_type: PostTy
     return keyboard
 
 
-def build_delete_post_keyboard(post: PersonalPost | CategoryPost | PremiumPost, post_type: PostTypes) -> InlineKeyboardMarkup:
+def build_delete_post_keyboard(post: PersonalPost | CategoryPost | PremiumPost, post_type: ChannelPostTypes) -> InlineKeyboardMarkup:
     button = InlineKeyboardButton(general_inline_buttons_texts.DELETE_POST_BUTTON_TEXT,
                                   callback_data=f'{callbacks.DELETE_POST}:{post_type}:{post.id}')
     keyboard = InlineKeyboardMarkup([[button]])

@@ -16,7 +16,6 @@ app = Client('update_session', config.BOT_API_ID, config.BOT_API_HASH, phone_num
 
 async def on_message(client: Client, message: Message):
     from utils.helpers import clean_channel_id
-    print('work')
     channel = await client.get_chat(message.text)
     all_channels_ids = [channel.id for channel in (await get_all_channels())]
     channel_id = clean_channel_id(channel.id)

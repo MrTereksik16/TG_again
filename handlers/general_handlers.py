@@ -16,7 +16,7 @@ from keyboards.personal.reply import personal_reply_keyboards
 from keyboards.recommendations.reply import recommendations_reply_keyboards
 from store.states import *
 from utils.consts import answers, errors
-from utils.custom_types import PostTypes, MarkTypes, Modes
+from utils.custom_types import ChannelPostTypes, MarkTypes, Modes
 from utils.helpers import send_post_to_support, get_next_post, send_next_post, send_end_message
 
 
@@ -94,7 +94,7 @@ async def on_admin_panel_message(message: Message, state: FSMContext):
 
 async def on_like_button_click(callback: CallbackQuery):
     callback_pieces = callback.data.split(':')[1:]
-    post_type = PostTypes(callback_pieces[0])
+    post_type = ChannelPostTypes(callback_pieces[0])
     post_id = int(callback_pieces[1])
     old_likes = int(callback_pieces[2])
     old_dislikes = int(callback_pieces[3])
@@ -106,11 +106,11 @@ async def on_like_button_click(callback: CallbackQuery):
     mark_type_id = MarkTypes.LIKE
     post = None
 
-    if post_type == PostTypes.PREMIUM:
+    if post_type == ChannelPostTypes.PREMIUM:
         post = await get_premium_channel_post(post_id)
-    elif post_type == PostTypes.CATEGORY:
+    elif post_type == ChannelPostTypes.CATEGORY:
         post = await get_category_channel_post(post_id)
-    elif post_type == PostTypes.PERSONAL:
+    elif post_type == ChannelPostTypes.PERSONAL:
         post = await get_personal_channel_post(post_id)
 
     if not post:
@@ -125,7 +125,7 @@ async def on_like_button_click(callback: CallbackQuery):
     new_likes = post.likes
     new_dislikes = post.dislikes
 
-    if post_type == PostTypes.PREMIUM:
+    if post_type == ChannelPostTypes.PREMIUM:
         premium_viewed_post = await get_viewed_premium_post(user_tg_id, post_id)
         mark_type_id = premium_viewed_post.mark_type_id
 
@@ -135,7 +135,7 @@ async def on_like_button_click(callback: CallbackQuery):
         if mark_type_id == MarkTypes.DISLIKE:
             new_dislikes = await update_premium_post_dislikes(post_id, increment=False)
 
-    elif post_type == PostTypes.CATEGORY:
+    elif post_type == ChannelPostTypes.CATEGORY:
         category_viewed_post = await get_viewed_category_post(user_tg_id, post_id)
         mark_type_id = category_viewed_post.mark_type_id
 
@@ -145,7 +145,7 @@ async def on_like_button_click(callback: CallbackQuery):
         if mark_type_id == MarkTypes.DISLIKE:
             new_dislikes = await update_category_post_dislikes(post_id, increment=False)
 
-    elif post_type == PostTypes.PERSONAL:
+    elif post_type == ChannelPostTypes.PERSONAL:
         personal_viewed_post = await get_viewed_personal_post(user_tg_id, post_id)
         mark_type_id = personal_viewed_post.mark_type_id
 
@@ -172,7 +172,7 @@ async def on_like_button_click(callback: CallbackQuery):
 
 async def on_dislike_button_click(callback: CallbackQuery):
     callback_pieces = callback.data.split(':')[1:]
-    post_type = PostTypes(callback_pieces[0])
+    post_type = ChannelPostTypes(callback_pieces[0])
     post_id = int(callback_pieces[1])
     old_likes = int(callback_pieces[2])
     old_dislikes = int(callback_pieces[3])
@@ -185,11 +185,11 @@ async def on_dislike_button_click(callback: CallbackQuery):
     mark_type_id = None
     post = None
 
-    if post_type == PostTypes.PREMIUM:
+    if post_type == ChannelPostTypes.PREMIUM:
         post = await get_premium_channel_post(post_id)
-    elif post_type == PostTypes.CATEGORY:
+    elif post_type == ChannelPostTypes.CATEGORY:
         post = await get_category_channel_post(post_id)
-    elif post_type == PostTypes.PERSONAL:
+    elif post_type == ChannelPostTypes.PERSONAL:
         post = await get_personal_channel_post(post_id)
 
     if not post:
@@ -204,7 +204,7 @@ async def on_dislike_button_click(callback: CallbackQuery):
     new_likes = post.likes
     new_dislikes = post.dislikes
 
-    if post_type == PostTypes.PREMIUM:
+    if post_type == ChannelPostTypes.PREMIUM:
         category_viewed_post = await get_viewed_premium_post(user_tg_id, post_id)
         mark_type_id = category_viewed_post.mark_type_id
 
@@ -214,7 +214,7 @@ async def on_dislike_button_click(callback: CallbackQuery):
         if mark_type_id == MarkTypes.LIKE:
             new_likes = await update_premium_post_likes(post_id, increment=False)
 
-    elif post_type == PostTypes.CATEGORY:
+    elif post_type == ChannelPostTypes.CATEGORY:
         category_viewed_post = await get_viewed_category_post(user_tg_id, post_id)
         mark_type_id = category_viewed_post.mark_type_id
 
@@ -225,7 +225,7 @@ async def on_dislike_button_click(callback: CallbackQuery):
         if mark_type_id == MarkTypes.LIKE:
             new_likes = await update_category_post_likes(post_id, increment=False)
 
-    elif post_type == PostTypes.PERSONAL:
+    elif post_type == ChannelPostTypes.PERSONAL:
         category_viewed_post = await get_viewed_personal_post(user_tg_id, post_id)
         mark_type_id = category_viewed_post.mark_type_id
 
@@ -260,13 +260,13 @@ async def on_report_button_click(callback: CallbackQuery):
     message = callback.message
 
     viewed_post = None
-    if post_type == PostTypes.PREMIUM:
+    if post_type == ChannelPostTypes.PREMIUM:
         await update_premium_channel_post_reports(post_id)
         viewed_post = await get_viewed_premium_post(user_tg_id, post_id)
-    elif post_type == PostTypes.CATEGORY:
+    elif post_type == ChannelPostTypes.CATEGORY:
         await update_category_channel_post_reports(post_id)
         viewed_post = await get_viewed_category_post(user_tg_id, post_id)
-    elif post_type == PostTypes.PERSONAL:
+    elif post_type == ChannelPostTypes.PERSONAL:
         await update_personal_channel_post_reports(post_id)
         viewed_post = await get_viewed_personal_post(user_tg_id, post_id)
 
@@ -286,14 +286,18 @@ async def on_report_button_click(callback: CallbackQuery):
     else:
         await callback.answer('Пост уже удалён')
 
-    if hasattr(message.reply_to_message, 'message_id'):
-        message_ids = list(range(message.reply_to_message.message_id - 1, message.message_id + 1))
-        await bot_client.delete_messages(chat_id, message_ids)
-    else:
-        message_ids = message.message_id
-        await bot_client.delete_messages(chat_id, message_ids)
+    try:
+        if hasattr(message.reply_to_message, 'message_id'):
+            message_ids = list(range(message.reply_to_message.message_id - 1, message.message_id + 1))
+            await bot_client.delete_messages(chat_id, message_ids)
+        else:
+            message_ids = message.message_id
+            await bot_client.delete_messages(chat_id, message_ids)
 
-    await send_post_to_support(SUPPORT_CHAT_ID, viewed_post)
+        await send_post_to_support(SUPPORT_CHAT_ID, viewed_post)
+    except Exception as err:
+        logger.error(f'Ошибка при отправлении поста на рассмотрение: {err}')
+
 
 
 async def on_delete_post_button_click(callback: CallbackQuery):
@@ -303,11 +307,11 @@ async def on_delete_post_button_click(callback: CallbackQuery):
     chat_id = callback.message.chat.id
     message = callback.message
 
-    if post_type == PostTypes.PREMIUM:
+    if post_type == ChannelPostTypes.PREMIUM:
         await delete_premium_channel_post(post_id)
-    elif post_type == PostTypes.CATEGORY:
+    elif post_type == ChannelPostTypes.CATEGORY:
         await delete_category_channel_post(post_id)
-    elif post_type == PostTypes.PERSONAL:
+    elif post_type == ChannelPostTypes.PERSONAL:
         await delete_personal_channel_post(post_id)
 
     await callback.answer('Пост удалён')

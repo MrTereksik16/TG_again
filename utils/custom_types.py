@@ -4,7 +4,7 @@ class Modes:
     CATEGORIES = 'Категории'
 
 
-class PostTypes:
+class ChannelPostTypes:
     PREMIUM = 'Премиальный'
     PERSONAL = 'Личный'
     CATEGORY = 'Из категорий'

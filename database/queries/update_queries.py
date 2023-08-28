@@ -1,9 +1,8 @@
 from config.logging_config import logger
 from sqlalchemy import text, func
 from database.create_db import Session
-from database.models import CategoryPost, PremiumPost, PersonalPost, DailyStatistic
+from database.models import CategoryPost, PremiumPost, PersonalPost
 from utils.custom_types import MarkTypes
-from datetime import date
 
 
 async def update_viewed_personal_post_mark_type(user_tg_id: int, post_id: int, mark_type_id: MarkTypes):

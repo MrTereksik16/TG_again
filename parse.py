@@ -5,26 +5,27 @@ from config import config
 from create_bot import bot_client
 from database.queries.get_queries import *
 from utils.consts import errors
-from utils.custom_types import Modes, Post
+from utils.custom_types import Post, ChannelPostTypes
 from utils.helpers import download_media_group, download_media
 
 
-async def parse(channel_username: str, chat_id: int, mode: Modes, limit=config.POSTS_AMOUNT_LIMIT) -> list[Post] | None:
+async def parse(channel_username: str, channel_type: ChannelPostTypes, chat_id: int = None, limit=config.POSTS_AMOUNT_LIMIT) -> list[Post] | None:
     channel_username = channel_username.replace('@', '')
-    if mode == Modes.RECOMMENDATIONS:
+    if channel_type == ChannelPostTypes.PREMIUM:
         general_channel = await get_premium_channel(channel_username)
         channel_id = general_channel.id
-    elif mode == Modes.CATEGORIES:
+    elif channel_type == ChannelPostTypes.CATEGORY:
         category_channel = await get_category_channel(channel_username)
         channel_id = category_channel.id
-    elif mode == Modes.PERSONAL:
+    elif channel_type == ChannelPostTypes.PERSONAL:
         personal_channel = await get_personal_channel(channel_username)
         channel_id = personal_channel.id
     else:
         return None
 
     channel_username = f'@{channel_username}'
-    await bot_client.send_message(chat_id, f'Получаем посты из канала {channel_username}...')
+    if chat_id:
+        await bot_client.send_message(chat_id, f'Получаем посты из канала {channel_username}...')
     data = []
     tasks = []
     messages = []
@@ -68,7 +69,7 @@ async def parse(channel_username: str, chat_id: int, mode: Modes, limit=config.P
 
                 data.append(Post(channel_id, channel_username, message_text, message_entities, message_media_path))
         except Exception as err:
-            logger.error(f'Ошибка при парсинге сообщений канала {channel_username}: {err}')
+            logger.error(f'Ошибка при получении постов из канала {channel_username}: {err}')
 
         try:
             await user_client.send_message('me', channel_username, disable_notification=True)
