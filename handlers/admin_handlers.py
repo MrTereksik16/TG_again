@@ -1,3 +1,5 @@
+import time
+
 from aiogram import Dispatcher
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
@@ -79,7 +81,7 @@ async def on_premium_channels_message(message: Message, state: FSMContext):
     for i, channel_username in enumerate(to_parse, start=1):
         await delete_category_channel(channel_username)
         posts = await parse(channel_username, chat_id, mode=mode)
-        if not posts:
+        if posts == errors.NO_POSTS:
             await bot_client.send_message(chat_id, 'Канал пуст', reply_markup=admin_reply_keyboards.admin_panel_control_keyboard)
         else:
             if i == to_parse_len:
@@ -89,7 +91,7 @@ async def on_premium_channels_message(message: Message, state: FSMContext):
                 await bot_client.send_message(chat_id, f'Посты с канала @{channel_username} получены 👍', reply_markup=keyboard)
             else:
                 await bot_client.send_message(chat_id, f'Не удалось получить посты с канала @{channel_username}', reply_markup=keyboard)
-
+        time.sleep(0.8)
 
 async def on_add_category_channels_message(message: Message, state: FSMContext):
     categories = await get_categories()
@@ -148,9 +150,9 @@ async def on_category_channels_message(message: Message, state: FSMContext):
     for i, channel_username in enumerate(to_parse, start=1):
         await delete_premium_channel(channel_username)
         posts = await parse(channel_username, chat_id, mode=mode)
-        print(posts)
-        if not posts:
-            await bot_client.send_message(chat_id, f'Не удалось получить посты с канала @{channel_username}', reply_markup=keyboard)
+
+        if posts == errors.NO_POSTS:
+            await bot_client.send_message(chat_id, 'Канал пуст', reply_markup=admin_reply_keyboards.admin_panel_control_keyboard)
         else:
             if i == to_parse_len:
                 keyboard = admin_reply_keyboards.admin_panel_control_keyboard
@@ -159,7 +161,8 @@ async def on_category_channels_message(message: Message, state: FSMContext):
             if result:
                 await bot_client.send_message(chat_id, f'Посты с канала @{channel_username} получены 👍', reply_markup=keyboard)
             else:
-                await bot_client.send_message(chat_id, 'Канал пуст', reply_markup=admin_reply_keyboards.admin_panel_control_keyboard)
+                await bot_client.send_message(chat_id, f'Не удалось получить посты с канала @{channel_username}', reply_markup=keyboard)
+        time.sleep(0.8)
 
 
 async def on_list_premium_channels_message(message: Message):

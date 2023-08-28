@@ -393,25 +393,25 @@ async def get_category_id(category_name) -> int | None:
         return category_id
 
 
-async def get_all_channels_ids() -> list:
+async def get_all_channels() -> list:
     session = Session()
-    channels_ids = []
+    channels = []
     try:
         query = '''
-            select id from premium_channel
-            union select id from category_channel
-            union select id from personal_channel
+            select id, channel_username from premium_channel
+            union select id, channel_username from category_channel
+            union select id, channel_username from personal_channel
         '''
-        channels = session.execute(text(query))
+        records = session.execute(text(query))
 
-        for channel in channels:
-            channels_ids.append(channel.id)
+        for channel in records:
+            channels.append(channel)
 
     except Exception as err:
-        logger.error(f'Ошибка при получении id всех каналов: {err}')
+        logger.error(f'Ошибка при получении всех каналов: {err}')
     finally:
         session.close()
-        return channels_ids
+        return channels
 
 
 async def get_coefficients() -> list:

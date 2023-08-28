@@ -1,10 +1,12 @@
+import time
+
 from aiogram import Dispatcher, types
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
 from aiogram.types import Message, ReplyKeyboardRemove
 from pyrogram.types import InlineKeyboardMarkup, CallbackQuery, InlineKeyboardButton
 from create_bot import bot_client
-from utils.consts import answers
+from utils.consts import answers, errors
 from parse import parse
 import callbacks
 from database.queries.create_queries import create_personal_posts
@@ -69,9 +71,9 @@ async def on_personal_channels_message(message: Message, state: FSMContext):
     to_parse_len = len(to_parse)
     for i, channel_username in enumerate(to_parse, start=1):
         posts = await parse(channel_username, chat_id, mode=mode)
-        print(posts)
-        if not posts:
-            await bot_client.send_message(chat_id, f'Не удалось получить посты с канала {channel_username}', reply_markup=keyboard)
+
+        if posts == errors.NO_POSTS:
+            await bot_client.send_message(chat_id, 'Канал пуст', reply_markup=personal_reply_keyboards.personal_start_control_keyboard)
         else:
             if i == to_parse_len:
                 keyboard = personal_reply_keyboards.personal_start_control_keyboard
@@ -81,7 +83,8 @@ async def on_personal_channels_message(message: Message, state: FSMContext):
 
                 await bot_client.send_message(chat_id, f'Посты с канала @{channel_username} получены 👍', reply_markup=keyboard)
             else:
-                await bot_client.send_message(chat_id, 'Канал пуст', reply_markup=personal_reply_keyboards.personal_start_control_keyboard)
+                await bot_client.send_message(chat_id, f'Не удалось получить посты с канала {channel_username}', reply_markup=keyboard)
+        time.sleep(0.8)
 
 
 async def on_list_channels_message(message: Message):

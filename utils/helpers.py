@@ -82,10 +82,11 @@ async def send_next_post(user_tg_id: int, chat_id: int, mode: Modes, post=None):
     dislikes = post.dislikes
     post_id = post.id
     message_text = post.text
+    channel_username = post.channel_username
 
     if mode == Modes.CATEGORIES:
         category = post.name + post.emoji
-        message_text += f'\nКатегория: `{category}`'
+        message_text += f'\nКатегория: {category}'
 
     keyboard = ReplyKeyboardRemove()
 
@@ -111,16 +112,17 @@ async def send_next_post(user_tg_id: int, chat_id: int, mode: Modes, post=None):
         await create_user_viewed_personal_post(user_tg_id, post_id)
         keyboard = build_reactions_inline_keyboard(likes, dislikes, PostTypes.PERSONAL, post_id)
 
+    result_message_text = f'{message_text}\n\nПост с канала {channel_username}'
     try:
         if not media_path:
-            await bot_client.send_message(chat_id, message_text, entities=entities, reply_markup=keyboard)
+            await bot_client.send_message(chat_id, result_message_text, entities=entities, reply_markup=keyboard)
         else:
             if media_path.endswith('.jpg'):
                 await bot_client.send_chat_action(chat_id, action=ChatAction.UPLOAD_PHOTO)
-                await bot_client.send_photo(chat_id, media_path, caption=message_text, caption_entities=entities, reply_markup=keyboard)
+                await bot_client.send_photo(chat_id, media_path, caption=result_message_text, caption_entities=entities, reply_markup=keyboard)
             elif media_path.endswith('.mp4'):
                 await bot_client.send_chat_action(chat_id, action=ChatAction.UPLOAD_VIDEO)
-                await bot_client.send_video(chat_id, media_path, caption=message_text, caption_entities=entities, reply_markup=keyboard)
+                await bot_client.send_video(chat_id, media_path, caption=result_message_text, caption_entities=entities, reply_markup=keyboard)
             elif os.path.isdir(media_path):
                 media_group = []
                 files = os.listdir(media_path)
@@ -134,7 +136,7 @@ async def send_next_post(user_tg_id: int, chat_id: int, mode: Modes, post=None):
                         path = os.path.join(media_path, file)
                         media_group.append(InputMediaVideo(path))
                 msg = await bot_client.send_media_group(chat_id, media_group)
-                await bot_client.send_message(chat_id, message_text, entities=entities, reply_markup=keyboard, reply_to_message_id=msg[0].id)
+                await bot_client.send_message(chat_id, result_message_text, entities=entities, reply_markup=keyboard, reply_to_message_id=msg[0].id)
         await update_users_views_per_day(user_tg_id)
         return True
     except Exception as err:

@@ -7,7 +7,7 @@ from pyrogram.types import Message
 
 from database.queries.delete_queries import delete_first_personal_channel_post, delete_first_premium_channel_post, delete_first_category_channel_post
 from database.queries.get_queries import get_premium_channel, get_category_channel, get_personal_channel, get_personal_channel_posts, \
-    get_all_premium_channel_posts, get_category_channel_posts, get_all_channels_ids
+    get_all_premium_channel_posts, get_category_channel_posts, get_all_channels
 from database.queries.create_queries import create_premium_post, create_category_post, create_personal_post
 from utils.custom_types import Post
 
@@ -18,7 +18,7 @@ async def on_message(client: Client, message: Message):
     from utils.helpers import clean_channel_id
     print('work')
     channel = await client.get_chat(message.text)
-    all_channels_ids = await get_all_channels_ids()
+    all_channels_ids = [channel.id for channel in (await get_all_channels())]
     channel_id = clean_channel_id(channel.id)
     channel_username = channel.username
 

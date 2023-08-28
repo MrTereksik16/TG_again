@@ -1,20 +1,11 @@
 import logging
-from aiogram import types, Dispatcher
 from aiogram.utils import executor
 from config.logging_config import logger
 from create_bot import dp, scheduler
 from handlers import register_personal_handlers, register_recommendations_handlers, register_categories_handlers, \
     register_generals_handlers, register_admin_handlers
 from database.initial_data import create_initial_data
-from scheduler_jobs import scheduler_jobs
-
-
-async def set_default_commands(dp: Dispatcher):
-    await dp.bot.set_my_commands([
-        types.BotCommand("start", "К рекомендациям"),
-    ])
-    await scheduler_jobs()
-
+from on_start_bot_tasks import on_start_bot_tasks
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
@@ -28,4 +19,4 @@ if __name__ == '__main__':
     create_initial_data()
 
     scheduler.start()
-    executor.start_polling(dp, skip_updates=True, on_startup=[set_default_commands])
+    executor.start_polling(dp, skip_updates=True, on_startup=[on_start_bot_tasks])
