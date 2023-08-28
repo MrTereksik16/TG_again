@@ -81,9 +81,9 @@ async def send_next_post(user_tg_id: int, chat_id: int, mode: Modes, post=None):
     likes = post.likes
     dislikes = post.dislikes
     post_id = post.id
-    message_text = post.text
     channel_username = post.channel_username
-
+    message_text = f'{post.text}\n\nПост с канала @{channel_username}'
+    print(message_text)
     if mode == Modes.CATEGORIES:
         category = post.name + post.emoji
         message_text += f'\nКатегория: {category}'
@@ -112,7 +112,7 @@ async def send_next_post(user_tg_id: int, chat_id: int, mode: Modes, post=None):
         await create_user_viewed_personal_post(user_tg_id, post_id)
         keyboard = build_reactions_inline_keyboard(likes, dislikes, PostTypes.PERSONAL, post_id)
 
-    result_message_text = f'{message_text}\n\nПост с канала {channel_username}'
+    result_message_text =
     try:
         if not media_path:
             await bot_client.send_message(chat_id, result_message_text, entities=entities, reply_markup=keyboard)
