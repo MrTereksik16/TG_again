@@ -1,3 +1,4 @@
+import os.path
 import pickle
 from config import config
 from config.logging_config import logger
@@ -56,11 +57,16 @@ async def update_post(client: Client, message: Message):
             return
 
         channel_id = clean_channel_id(message.chat.id)
-        message_text = message.text
-        message_entities = pickle.dumps(message.entities)
+        message_text = message.text or message.caption or ''
+        message_entities = pickle.dumps(message.entities or message.caption_entities)
         message_media_path = ''
 
         if message.media_group_id:
+            media_group_path = f'media/{channel_username}/{message.media_group_id}'
+
+            if os.path.exists(media_group_path):
+                return
+
             message_media_path = await download_media_group(client, message)
         elif message.media:
             message_media_path = await download_media(client, message)

@@ -66,7 +66,6 @@ async def parse(channel_username: str, channel_type: ChannelPostTypes, chat_id: 
                     message_text = media_group[0].caption
                 else:
                     message_text = message.caption or message.text or ''
-
                 data.append(Post(channel_id, channel_username, message_text, message_entities, message_media_path))
         except Exception as err:
             logger.error(f'Ошибка при получении постов из канала {channel_username}: {err}')

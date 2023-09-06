@@ -16,7 +16,7 @@ if __name__ == '__main__':
     register_categories_handlers(dp)
     register_personal_handlers(dp)
     register_admin_handlers(dp)
-    create_initial_data()
+    # create_initial_data()
 
     scheduler.start()
     executor.start_polling(dp, skip_updates=True, on_startup=[on_start_bot_tasks])

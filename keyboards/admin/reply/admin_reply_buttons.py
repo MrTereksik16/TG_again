@@ -20,3 +20,5 @@ delete_premium_channels_button = KeyboardButton(DELETE_PREMIUM_CHANNELS_BUTTON_T
 delete_category_channels_button = KeyboardButton(DELETE_CATEGORIES_CHANNELS_BUTTON_TEXT)
 delete_general_category_button = KeyboardButton(DELETE_CATEGORY_BUTTON_TEXT)
 delete_coefficients_button = KeyboardButton(DELETE_COEFFICIENTS)
+
+rename_category = KeyboardButton(RENAME_CATEGORY)

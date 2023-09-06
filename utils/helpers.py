@@ -76,22 +76,21 @@ async def send_next_post(user_tg_id: int, chat_id: int, mode: Modes, post=None):
     if not post:
         post = await get_next_post(user_tg_id, mode)
         if not post:
-            return errors.NO_POST
-
+            return await send_end_message(user_tg_id, chat_id, mode)
     entities = pickle.loads(post.entities)
     media_path = post.media_path
     likes = post.likes
     dislikes = post.dislikes
     post_id = post.id
     channel_username = post.channel_username
-    message_text = f'{post.text or ""}\n\nПост с канала @{channel_username}'
+    message_text = f'{post.text}\n\nПост с канала @{channel_username}'
     message_text_len = len(message_text)
 
     if mode == Modes.CATEGORIES:
         category = post.name + post.emoji
         message_text += f'\nКатегория: {category}'
 
-    keyboard = ReplyKeyboardRemove()
+    reactions_keyboard = ReplyKeyboardRemove()
 
     if mode == Modes.RECOMMENDATIONS:
         if hasattr(post, 'premium_channel_id'):
@@ -99,41 +98,43 @@ async def send_next_post(user_tg_id: int, chat_id: int, mode: Modes, post=None):
             if result == errors.DUPLICATE_ERROR_TEXT:
                 await update_user_viewed_premium_post_counter(user_tg_id, post_id)
 
-            keyboard = build_reactions_inline_keyboard(likes, dislikes, ChannelPostTypes.PREMIUM, post_id)
+            reactions_keyboard = build_reactions_inline_keyboard(likes, dislikes, ChannelPostTypes.PREMIUM, post_id, mode)
+
         elif hasattr(post, 'category_channel_id'):
             result = await create_user_viewed_category_post(user_tg_id, post_id)
             if result == errors.DUPLICATE_ERROR_TEXT:
                 await update_user_viewed_category_post_counter(user_tg_id, post_id)
 
-            keyboard = build_reactions_inline_keyboard(likes, dislikes, ChannelPostTypes.CATEGORY, post_id)
+            reactions_keyboard = build_reactions_inline_keyboard(likes, dislikes, ChannelPostTypes.CATEGORY, post_id, mode)
 
     elif mode == Modes.CATEGORIES:
         await create_user_viewed_category_post(user_tg_id, post_id)
-        keyboard = build_reactions_inline_keyboard(likes, dislikes, ChannelPostTypes.CATEGORY, post_id)
+        reactions_keyboard = build_reactions_inline_keyboard(likes, dislikes, ChannelPostTypes.CATEGORY, post_id, mode)
 
     elif mode == Modes.PERSONAL:
         await create_user_viewed_personal_post(user_tg_id, post_id)
-        keyboard = build_reactions_inline_keyboard(likes, dislikes, ChannelPostTypes.PERSONAL, post_id)
+        reactions_keyboard = build_reactions_inline_keyboard(likes, dislikes, ChannelPostTypes.PERSONAL, post_id, mode)
 
     try:
-        logger.error(post)
         if not media_path:
-            await bot_client.send_message(chat_id, message_text, entities=entities, reply_markup=keyboard)
+            await bot_client.send_message(chat_id, message_text, entities=entities, reply_markup=reactions_keyboard)
         else:
             if media_path.endswith('.jpg'):
                 await bot_client.send_chat_action(chat_id, action=ChatAction.UPLOAD_PHOTO)
                 if message_text_len > 1024:
-                    message = await bot_client.send_photo(chat_id, media_path, caption=message_text)
-                    await bot_client.send_message(chat_id, text=message_text, entities=entities, reply_to_message_id=message[0].id, reply_markup=keyboard)
+                    message = await bot_client.send_photo(chat_id, media_path)
+                    await bot_client.send_message(chat_id, text=message_text, entities=entities, reply_to_message_id=message.id,
+                                                  reply_markup=reactions_keyboard)
                 else:
-                    await bot_client.send_photo(chat_id, media_path, caption=message_text, caption_entities=entities, reply_markup=keyboard)
+                    await bot_client.send_photo(chat_id, media_path, caption=message_text, caption_entities=entities, reply_markup=reactions_keyboard)
             elif media_path.endswith('.mp4'):
                 await bot_client.send_chat_action(chat_id, action=ChatAction.UPLOAD_VIDEO)
                 if message_text_len > 1024:
                     message = await bot_client.send_video(chat_id, media_path)
-                    await bot_client.send_message(chat_id, message_text, entities=entities, reply_markup=keyboard, reply_to_message_id=message[0].id)
+                    await bot_client.send_message(chat_id, message_text, entities=entities, reply_markup=reactions_keyboard,
+                                                  reply_to_message_id=message.id)
                 else:
-                    await bot_client.send_video(chat_id, media_path, caption=message_text, caption_entities=entities, reply_markup=keyboard)
+                    await bot_client.send_video(chat_id, media_path, caption=message_text, caption_entities=entities, reply_markup=reactions_keyboard)
 
             elif os.path.isdir(media_path):
                 media_group = []
@@ -147,13 +148,14 @@ async def send_next_post(user_tg_id: int, chat_id: int, mode: Modes, post=None):
                         await bot_client.send_chat_action(chat_id, action=ChatAction.UPLOAD_PHOTO)
                         path = os.path.join(media_path, file)
                         media_group.append(InputMediaVideo(path))
-                msg = await bot_client.send_media_group(chat_id, media_group)
-                await bot_client.send_message(chat_id, message_text, entities=entities, reply_markup=keyboard, reply_to_message_id=msg[0].id)
+                message = await bot_client.send_media_group(chat_id, media_group)
+                await bot_client.send_message(chat_id, message_text, entities=entities, reply_markup=reactions_keyboard,
+                                              reply_to_message_id=message[0].id)
         await update_users_views_per_day(user_tg_id)
         return True
     except Exception as err:
-        await bot_client.send_message(chat_id, 'Упс. Не получилось отправить этот пост 😬', reply_markup=keyboard)
-        logger.error(f'Ошибка при отправлении поста пользователю: {err}')
+        await bot_client.send_message(chat_id, 'Упс. Не получилось отправить этот пост 😬', reply_markup=reactions_keyboard)
+        logger.error(f'Ошибка при отправлении поста пользователю: {err}\n{post}\nMessage entities: {entities}')
         return False
 
 
@@ -178,7 +180,8 @@ async def send_end_message(user_tg_id: int, chat_id: int, mode: Modes):
     time.sleep(1)
 
 
-async def add_channels(channels: str, user_tg_id: int, channel_type: ChannelPostTypes, category_name='', coefficient: int = 1) -> AddChannelsResult:
+async def add_channels(channels: str, channel_type: ChannelPostTypes, user_tg_id: int = None, category_name='',
+                       coefficient: int = 1) -> AddChannelsResult:
     links = [link.strip() for link in channels.split(',') if link.strip()]
     to_parse = []
     added = []
@@ -254,39 +257,51 @@ async def reset_and_switch_state(state: FSMContext, switch_to: State()):
 
 async def download_media(client: Client, message: Message) -> str | None:
     file_path = None
-    channel_username = message.chat.username
-    if message.photo:
-        file_path = f'media/{channel_username}/media_image_{message.chat.id}_{message.photo.file_unique_id}.jpg'
+    try:
+        channel_username = message.chat.username
+        if message.photo:
+            file_id = message.photo.file_unique_id
+            file_path = f'media/{channel_username}/image_{file_id}.jpg'
+        elif message.video:
+            file_id = message.video.file_unique_id
+            file_path = f'media/{channel_username}/video_{file_id}.mp4'
+
+        if os.path.exists(file_path):
+            return file_path
         await client.download_media(message, file_path)
-    elif message.video:
-        file_path = f'media/{channel_username}/media_video_{message.chat.id}_{message.video.file_id}.mp4'
-        await client.download_media(message, file_path)
-    return file_path
+    except Exception as err:
+        logger.error(f'Ошибка при скачивании медиа поста: {err}')
+    finally:
+        return file_path
 
 
 async def download_media_group(client: Client, message: Message) -> str | None:
     if not message.media_group_id:
         return None
 
-    channel_name = message.chat.username
+    channel_username = message.chat.username
     media_group_id = message.media_group_id
-    media_group = await message.get_media_group()
-    media_group_folder_path = f'media/{channel_name}/{media_group_id}'
+    media_group_folder_path = f'media/{channel_username}/{media_group_id}'
+
     if os.path.exists(media_group_folder_path):
         return media_group_folder_path
 
     os.makedirs(media_group_folder_path, exist_ok=True)
-    for media_message in media_group:
-        if media_message.photo:
-            file_id = media_message.photo.file_id
-            file_path = f'{media_group_folder_path}/{file_id}.jpg'
-            await client.download_media(media_message, file_name=file_path)
-        elif media_message.video:
-            file_id = media_message.video.file_id
-            file_path = f'{media_group_folder_path}/{file_id}.mp4'
-            await client.download_media(media_message, file_name=file_path)
-
-    return media_group_folder_path
+    try:
+        media_group = await message.get_media_group()
+        for media_message in media_group:
+            if media_message.photo:
+                file_id = media_message.photo.file_unique_id
+                file_path = f'{media_group_folder_path}/image_{file_id}.jpg'
+                await client.download_media(media_message, file_name=file_path)
+            elif media_message.video:
+                file_id = media_message.video.file_unique_id
+                file_path = f'{media_group_folder_path}/video_{file_id}.mp4'
+                await client.download_media(media_message, file_name=file_path)
+    except Exception as err:
+        logger.error(f'Ошибка при скачивании медиа группы: {err}')
+    finally:
+        return media_group_folder_path
 
 
 def compress_image(filename):
@@ -365,8 +380,11 @@ async def send_post_to_support(chat_id: str | int, post):
             await update_personal_channel_post_report_message_id(post_id, report_message_id)
         return True
     except Exception as err:
-        await bot_client.send_message(chat_id, 'Упс. Не получилось получить содержимое этого поста 😬', reply_markup=keyboard)
         logger.error(f'Ошибка при отправлении поста в поддержку: {err}')
+        try:
+            await bot_client.send_message(chat_id, 'Упс. Не получилось получить содержимое этого поста 😬', reply_markup=keyboard)
+        except Exception as err:
+            logger.error(f'Ошибка при отправлении сообщения о неудачной отправки содержимого поста: {err}')
         return False
 
 
@@ -386,21 +404,3 @@ def format_number(num):
         return num_str
     else:
         return str(num)
-
-
-def split_message(message_text, max_length: int):
-    if len(message_text) <= max_length:
-        return [message_text]
-    else:
-        words = message_text.split()
-        result = []
-        current_line = ""
-        for word in words:
-            if len(current_line + " " + word) > max_length:
-                result.append(current_line.strip())
-                current_line = word
-            else:
-                current_line += " " + word
-        if current_line:
-            result.append(current_line)
-        return result

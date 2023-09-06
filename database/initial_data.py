@@ -2,7 +2,7 @@ from sqlalchemy import text
 from config.logging_config import logger
 from database.create_db import Session
 from database.models import Category, MarkType, Coefficient
-from database.queries.get_queries import get_all_channels
+from parse import parse
 from utils.consts.categories import CATEGORIES, CATEGORIES_EMOJI
 
 

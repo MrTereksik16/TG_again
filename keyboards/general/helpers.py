@@ -2,7 +2,7 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyb
 import callbacks
 from database.models import PersonalPost, CategoryPost, PremiumPost
 from keyboards.general.inline import general_inline_buttons_texts
-from utils.custom_types import ChannelPostTypes
+from utils.custom_types import ChannelPostTypes, Modes
 
 
 def build_reply_buttons(texts: list[str | int]) -> list[KeyboardButton]:
@@ -18,13 +18,18 @@ def build_reply_keyboard(buttons: list[KeyboardButton], n_cols: int = 2, header_
     if header_buttons:
         if not isinstance(header_buttons, list):
             header_buttons = [header_buttons]
-        menu.insert(0, header_buttons)
+            menu.insert(0, header_buttons)
+        else:
+            header_buttons = reversed(header_buttons)
+            for button in header_buttons:
+                menu.insert(0, [button])
+
     if footer_buttons:
         menu.append(footer_buttons)
     return ReplyKeyboardMarkup(menu, resize_keyboard=True)
 
 
-def build_reactions_inline_keyboard(likes: int, dislikes: int, post_type: ChannelPostTypes, post_id: int) -> InlineKeyboardMarkup:
+def build_reactions_inline_keyboard(likes: int, dislikes: int, post_type: ChannelPostTypes, post_id: int, mode: Modes) -> InlineKeyboardMarkup:
     if likes >= 1000000:
         likes = f'{likes // 1000000}M'
     elif likes >= 1000:
@@ -34,12 +39,17 @@ def build_reactions_inline_keyboard(likes: int, dislikes: int, post_type: Channe
         likes = f'{dislikes // 1000000}M'
     elif dislikes >= 1000:
         dislikes = f'{dislikes // 1000}K'
-
+    callback_data = f'{callbacks.LIKE}:{post_type}:{post_id}:{likes}:{dislikes}:{mode}'.encode()
     like_button = InlineKeyboardButton(f'{general_inline_buttons_texts.LIKE_BUTTON_TEXT} {likes}',
-                                       callback_data=f'{callbacks.LIKE}:{post_type}:{post_id}:{likes}:{dislikes}')
+                                       callback_data=callback_data)
+
+    callback_data = f'{callbacks.DISLIKE}:{post_type}:{post_id}:{likes}:{dislikes}:{mode}'.encode()
     dislike_button = InlineKeyboardButton(f'{general_inline_buttons_texts.DISLIKE_BUTTON_TEXT} {dislikes}',
-                                          callback_data=f'{callbacks.DISLIKE}:{post_type}:{post_id}:{likes}:{dislikes}')
-    report_button = InlineKeyboardButton(general_inline_buttons_texts.REPORT_BUTTON_TEXT, callback_data=f'{callbacks.REPORT}:{post_type}:{post_id}')
+                                          callback_data=callback_data)
+
+    callback_data = f'{callbacks.REPORT}:{post_type}:{post_id}:{mode}'.encode()
+    report_button = InlineKeyboardButton(general_inline_buttons_texts.REPORT_BUTTON_TEXT,
+                                         callback_data=callback_data)
 
     keyboard = InlineKeyboardMarkup([[like_button, dislike_button, report_button]])
 

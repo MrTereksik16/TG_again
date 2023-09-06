@@ -1,16 +1,30 @@
 from config.logging_config import logger
-from sqlalchemy import delete, and_
+from sqlalchemy import text
 
 from database.create_db import Session
 from database.models import PersonalChannel, UserChannel, UserCategory, PersonalPost, PremiumChannel, Category, PremiumPost, CategoryPost, \
-    CategoryChannel, Coefficient
+    CategoryChannel, Coefficient, UserViewedPersonalPost
 
 
-async def delete_personal_channel(user_tg_id, channel_username) -> bool:
+async def delete_user_channel(user_tg_id, channel_username) -> bool:
     session = Session()
     try:
         personal_channel = session.query(PersonalChannel).filter(PersonalChannel.channel_username == channel_username).one()
         session.query(UserChannel).filter(UserChannel.user_id == user_tg_id, UserChannel.channel_id == personal_channel.id).delete()
+        query = f'''
+            delete uc from user_channel uc 
+            join personal_channel pc on uc.channel_id = pc.id 
+            where uc.user_id={user_tg_id} and pc.channel_username='{channel_username}'
+        '''
+        session.execute(text(query))
+        session.flush()
+        query = f'''
+            delete uvpp from user_viewed_personal_post uvpp
+            join personal_post pp on uvpp.personal_post_id = pp.id
+            join personal_channel pc on pp.personal_channel_id = pc.id
+            where uvpp.user_id={user_tg_id} and pc.channel_username='{channel_username}'
+        '''
+        session.execute(text(query))
         session.commit()
         return True
     except Exception as err:
@@ -179,7 +193,7 @@ async def delete_category_channel_post(post_id: int) -> bool:
         session.close()
 
 
-async def delete_personal_channel_post(post_id: int) -> bool:
+async def delete_user_channel_post(post_id: int) -> bool:
     session = Session()
     try:
         result = session \

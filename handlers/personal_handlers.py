@@ -1,5 +1,4 @@
 import time
-
 from aiogram import Dispatcher, types
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
@@ -10,25 +9,35 @@ from utils.consts import answers, errors
 from parse import parse
 import callbacks
 from database.queries.create_queries import create_personal_posts
-from database.queries.delete_queries import delete_personal_channel
+from database.queries.delete_queries import delete_user_channel
 from database.queries.get_queries import get_user_channels_usernames
 from keyboards import personal_inline_keyboards
 from keyboards import personal_reply_keyboards
 from store.states import PersonalStates
-from utils.helpers import add_channels, reset_and_switch_state, remove_file_or_folder
+from utils.helpers import add_channels, reset_and_switch_state, send_next_post, send_end_message, get_next_post
 from keyboards import personal_reply_buttons_texts, general_reply_buttons_texts, general_reply_keyboards
-from utils.custom_types import Modes, ChannelPostTypes
-from config.config import MEDIA_DIR
+from utils.custom_types import ChannelPostTypes, Modes
 
 
 async def on_personal_feed_message(message: Message, state: FSMContext):
-    user_tg_id = message.from_user.id
-    user_channels = await get_user_channels_usernames(user_tg_id)
     await state.set_state(PersonalStates.PERSONAL_FEED)
+    user_tg_id = message.from_user.id
+    chat_id = message.chat.id
+    mode = Modes.PERSONAL
+    user_channels = await get_user_channels_usernames(user_tg_id)
 
     if user_channels:
-        await message.answer(answers.PERSONAL_FEED_MESSAGE_TEXT)
-        await on_list_channels_message(message)
+        next_post = await get_next_post(user_tg_id, mode)
+        keyboard = personal_reply_keyboards.personal_start_control_keyboard
+
+        if next_post:
+            keyboard = personal_reply_keyboards.personal_control_keyboard
+        await message.answer(answers.PERSONAL_FEED_MESSAGE_TEXT, reply_markup=keyboard)
+
+        if next_post:
+            await send_next_post(user_tg_id, chat_id, mode)
+        else:
+            await send_end_message(user_tg_id, chat_id, mode)
     else:
         await on_add_personal_channels_message(message, state)
 
@@ -55,7 +64,7 @@ async def on_personal_channels_message(message: Message, state: FSMContext):
     user_tg_id = message.from_user.id
     channel_type = ChannelPostTypes.PERSONAL
     channels = message.text
-    result = await add_channels(channels, user_tg_id, channel_type=channel_type)
+    result = await add_channels(channels, channel_type=channel_type, user_tg_id=user_tg_id, )
 
     answer = result.answer
     to_parse = result.to_parse
@@ -124,10 +133,9 @@ async def on_delete_user_channel_button_click(callback: CallbackQuery, state: FS
     context_data = await state.get_data()
     channels_usernames = context_data['user_channels_usernames']
     msg = context_data['delete_user_channels_message']
-    result = await delete_personal_channel(user_tg_id, channel_username)
+    result = await delete_user_channel(user_tg_id, channel_username)
 
     if result:
-        remove_file_or_folder(MEDIA_DIR + channel_username)
         channels_usernames.remove(channel_username)
         await state.update_data(user_channels_usernames=channels_usernames)
         buttons = []

@@ -1,13 +1,21 @@
 class Modes:
-    RECOMMENDATIONS = 'Рекомендации'
-    PERSONAL = 'Личная лента'
-    CATEGORIES = 'Категории'
+    RECOMMENDATIONS = 'Рек'
+    PERSONAL = 'Личн'
+    CATEGORIES = 'Катег'
+
+    def __new__(cls, value: str):
+        if value == cls.RECOMMENDATIONS:
+            return cls.RECOMMENDATIONS
+        if value == cls.PERSONAL:
+            return cls.PERSONAL
+        if value == cls.CATEGORIES:
+            return cls.CATEGORIES
 
 
 class ChannelPostTypes:
-    PREMIUM = 'Премиальный'
-    PERSONAL = 'Личный'
-    CATEGORY = 'Из категорий'
+    PREMIUM = 'Прем'
+    PERSONAL = 'Лич'
+    CATEGORY = 'Кат'
 
     def __new__(cls, value: str):
         if value == cls.PREMIUM:

@@ -2,7 +2,7 @@ from sqlalchemy.sql.sqltypes import BLOB, DateTime, Date
 from sqlalchemy.dialects.mysql import BIGINT, INTEGER, TINYINT
 from sqlalchemy import Column, Integer, String, ForeignKey, Text, func
 from sqlalchemy.orm import relationship
-from database.create_db import Base, engine
+from database.create_db import Base
 from utils.custom_types import MarkTypes
 
 

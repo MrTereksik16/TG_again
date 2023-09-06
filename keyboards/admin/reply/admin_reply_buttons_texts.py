@@ -11,5 +11,5 @@ DELETE_COEFFICIENTS = 'Удалить коэффициенты'
 ADD_COEFFICIENTS = 'Добавить коэффициенты'
 LIST_COEFFICIENTS = 'Список коэффициентов'
 LIST_STATISTIC = 'Статистика'
-
+RENAME_CATEGORY = 'Переименовать категорию'
 

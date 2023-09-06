@@ -1,7 +1,7 @@
 from config.logging_config import logger
 from sqlalchemy import text, func
 from database.create_db import Session
-from database.models import CategoryPost, PremiumPost, PersonalPost
+from database.models import CategoryPost, PremiumPost, PersonalPost, Category
 from utils.custom_types import MarkTypes
 
 
@@ -41,7 +41,7 @@ async def update_viewed_category_post_mark_type(user_tg_id: int, post_id: int, m
         session.close()
 
 
-async def update_personal_post_likes(post_id, increment: bool = True):
+async def update_personal_post_likes(post_id: int, increment: bool = True):
     session = Session()
     try:
         post = session.query(PersonalPost).filter_by(id=post_id).one()
@@ -57,7 +57,7 @@ async def update_personal_post_likes(post_id, increment: bool = True):
         session.close()
 
 
-async def update_premium_post_likes(post_id, increment: bool = True):
+async def update_premium_post_likes(post_id: int, increment: bool = True):
     session = Session()
     try:
         post = session.query(PremiumPost).filter_by(id=post_id).one()
@@ -73,7 +73,7 @@ async def update_premium_post_likes(post_id, increment: bool = True):
         session.close()
 
 
-async def update_category_post_likes(post_id, increment: bool = True):
+async def update_category_post_likes(post_id: int, increment: bool = True):
     session = Session()
     try:
         post = session.query(CategoryPost).filter_by(id=post_id).one()
@@ -89,7 +89,7 @@ async def update_category_post_likes(post_id, increment: bool = True):
         session.close()
 
 
-async def update_personal_post_dislikes(post_id, increment: bool = True):
+async def update_personal_post_dislikes(post_id: int, increment: bool = True):
     session = Session()
     try:
         post = session.query(PersonalPost).filter_by(id=post_id).one()
@@ -105,7 +105,7 @@ async def update_personal_post_dislikes(post_id, increment: bool = True):
         session.close()
 
 
-async def update_premium_post_dislikes(post_id, increment: bool = True):
+async def update_premium_post_dislikes(post_id: int, increment: bool = True):
     session = Session()
     try:
         post = session.query(PremiumPost).filter_by(id=post_id).one()
@@ -121,7 +121,7 @@ async def update_premium_post_dislikes(post_id, increment: bool = True):
         session.close()
 
 
-async def update_category_post_dislikes(post_id, increment: bool = True):
+async def update_category_post_dislikes(post_id: int, increment: bool = True):
     session = Session()
     try:
         post = session.query(CategoryPost).filter_by(id=post_id).one()
@@ -274,7 +274,7 @@ async def update_users_views_per_day(user_tg_id: int = None, reset: bool = False
     try:
         query = f'update user set views_per_day = views_per_day + 1 where id={user_tg_id}'
         if reset:
-            query = f'update user set views_per_day = 0'
+            query = f'update user set views_per_day = 0 where id'
         session.execute(text(query))
         session.commit()
     except Exception as err:
@@ -320,5 +320,22 @@ async def update_daily_dislikes(increment: bool = True):
         session.commit()
     except Exception as err:
         logger.error(f'Ошибка при обновлении числа дизалйков за день: {err}')
+    finally:
+        session.close()
+
+
+async def update_category(old_category_name: str, new_category_name: str, new_category_emoji: str = None) -> bool:
+    session = Session()
+    try:
+        category = session.query(Category).filter(Category.name == old_category_name).one()
+        category.name = new_category_name
+        if new_category_emoji:
+            category.emoji = new_category_emoji
+
+        session.commit()
+        return category.name == new_category_name
+    except Exception as err:
+        logger.error(f'Ошибка при обновлении имени категории: {err}')
+        return False
     finally:
         session.close()
