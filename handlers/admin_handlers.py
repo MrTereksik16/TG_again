@@ -5,14 +5,13 @@ from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
 from aiogram.types import Message, ContentType
 from pyrogram.types import InlineKeyboardMarkup, CallbackQuery, InlineKeyboardButton, ReplyKeyboardRemove
-import callbacks
 from create_bot import bot_client
 from database.queries.delete_queries import delete_category, delete_premium_channel, delete_category_channel, delete_coefficient
 from database.queries.get_queries import get_categories, get_all_premium_channels, get_all_categories_channels, get_coefficients, get_statistic
 from database.queries.create_queries import create_premium_posts, create_category_posts, create_category, create_coefficient
 from database.queries.update_queries import update_category
 from keyboards.general.helpers import build_reply_buttons, build_reply_keyboard
-from utils.consts import answers, errors
+from utils.consts import answers, errors, callbacks
 from parse import parse
 from store.states import AdminPanelStates
 from utils.helpers import add_channels, convert_list_of_items_to_string, reset_and_switch_state, remove_file_or_folder

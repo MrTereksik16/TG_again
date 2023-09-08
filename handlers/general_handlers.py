@@ -3,7 +3,6 @@ from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
 from aiogram.types import Message, CallbackQuery
 from config.config import ADMINS
-import callbacks
 from create_bot import bot_client
 from database.queries.get_queries import *
 from database.queries.update_queries import *
@@ -15,9 +14,13 @@ from keyboards.general.helpers import build_reactions_inline_keyboard
 from keyboards.personal.reply import personal_reply_keyboards
 from keyboards.recommendations.reply import recommendations_reply_keyboards
 from store.states import *
-from utils.consts import answers
+from utils.consts import answers, callbacks, commands
 from utils.custom_types import ChannelPostTypes, MarkTypes, Modes
 from utils.helpers import send_post_to_support, get_next_post, send_next_post, send_end_message
+
+
+async def on_guide_command(message: Message):
+    return await message.answer(answers.GUIDE_MESSAGE_TEXT)
 
 
 async def on_start_message(message: Message, state: FSMContext):
@@ -306,7 +309,7 @@ async def on_report_button_click(callback: CallbackQuery):
             await bot_client.delete_messages(chat_id, message_ids)
     except Exception as err:
         logger.error(f'Ошибка при удалении поста из ленты пользователя: {err}')
-    await send_post_to_support(chat_id, viewed_post)
+    await send_post_to_support(viewed_post)
 
     await send_next_post(user_tg_id, chat_id, mode)
 
@@ -371,5 +374,11 @@ def register_generals_handlers(dp: Dispatcher):
     dp.register_message_handler(
         on_skip_message,
         Text(equals=general_reply_buttons_texts.SKIP_BUTTON_TEXT),
+        state='*'
+    )
+
+    dp.register_message_handler(
+        on_guide_command,
+        commands=commands.GUIDE,
         state='*'
     )

@@ -1,0 +1,2 @@
+START = 'start'
+GUIDE = 'guide'

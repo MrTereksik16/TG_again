@@ -9,7 +9,7 @@ from database.queries.get_queries import get_user
 from database.queries.update_queries import update_last_visit_time, update_daily_new_users_amount
 from keyboards import recommendations_reply_keyboards
 from store.states import RecommendationsStates
-from utils.consts import answers, errors
+from utils.consts import answers, errors, commands
 from keyboards import general_reply_buttons_texts
 from utils.custom_types import Modes
 from utils.helpers import send_next_post, send_end_message, get_next_post
@@ -74,6 +74,6 @@ def register_recommendations_handlers(dp: Dispatcher):
 
     dp.register_message_handler(
         on_start_command,
-        commands='start',
+        commands=commands.START,
         state='*'
     )

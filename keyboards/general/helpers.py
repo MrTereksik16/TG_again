@@ -1,5 +1,5 @@
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
-import callbacks
+from utils.consts import callbacks
 from database.models import PersonalPost, CategoryPost, PremiumPost
 from keyboards.general.inline import general_inline_buttons_texts
 from utils.custom_types import ChannelPostTypes, Modes

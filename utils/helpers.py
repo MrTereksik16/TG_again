@@ -10,7 +10,7 @@ from pyrogram import Client
 from pyrogram.enums import ChatAction
 from pyrogram.types import Message
 from pyrogram.types import InputMediaPhoto, InputMediaVideo
-from config.config import ADMINS
+from config.config import ADMINS, SUPPORT_CHAT_ID
 from create_bot import bot_client
 from database.queries.create_queries import *
 from database.queries.get_queries import *
@@ -323,7 +323,7 @@ def remove_file_or_folder(path):
         logger.error("Path not found")
 
 
-async def send_post_to_support(chat_id: str | int, post):
+async def send_post_to_support(post):
     entities = pickle.loads(post.entities)
     post_text = post.text
     media_path = post.media_path
@@ -346,16 +346,16 @@ async def send_post_to_support(chat_id: str | int, post):
     report_message = None
     try:
         if report_message_id:
-            return await bot_client.edit_message_text(chat_id, report_message_id, result_post_text, reply_markup=keyboard)
+            return await bot_client.edit_message_text(SUPPORT_CHAT_ID, report_message_id, result_post_text, reply_markup=keyboard)
 
         if not media_path:
-            report_message = await bot_client.send_message(chat_id, result_post_text, entities=entities, reply_markup=keyboard)
+            report_message = await bot_client.send_message(SUPPORT_CHAT_ID, result_post_text, entities=entities, reply_markup=keyboard)
         else:
             if media_path.endswith('.jpg'):
-                report_message = await bot_client.send_photo(chat_id, media_path, caption=result_post_text, caption_entities=entities,
+                report_message = await bot_client.send_photo(SUPPORT_CHAT_ID, media_path, caption=result_post_text, caption_entities=entities,
                                                              reply_markup=keyboard)
             elif media_path.endswith('.mp4'):
-                report_message = await bot_client.send_video(chat_id, media_path, caption=result_post_text, caption_entities=entities,
+                report_message = await bot_client.send_video(SUPPORT_CHAT_ID, media_path, caption=result_post_text, caption_entities=entities,
                                                              reply_markup=keyboard)
             elif os.path.isdir(media_path):
                 media_group = []
@@ -367,8 +367,8 @@ async def send_post_to_support(chat_id: str | int, post):
                     elif file.endswith('.mp4'):
                         path = os.path.join(media_path, file)
                         media_group.append(InputMediaVideo(path))
-                media_group_message = await bot_client.send_media_group(chat_id, media_group)
-                report_message = await bot_client.send_message(chat_id, result_post_text, entities=entities, reply_markup=keyboard,
+                media_group_message = await bot_client.send_media_group(SUPPORT_CHAT_ID, media_group)
+                report_message = await bot_client.send_message(SUPPORT_CHAT_ID, result_post_text, entities=entities, reply_markup=keyboard,
                                                                reply_to_message_id=media_group_message[0].id)
         report_message_id = report_message.id
 
@@ -382,7 +382,7 @@ async def send_post_to_support(chat_id: str | int, post):
     except Exception as err:
         logger.error(f'Ошибка при отправлении поста в поддержку: {err}')
         try:
-            await bot_client.send_message(chat_id, 'Упс. Не получилось получить содержимое этого поста 😬', reply_markup=keyboard)
+            await bot_client.send_message(SUPPORT_CHAT_ID, 'Упс. Не получилось получить содержимое этого поста 😬', reply_markup=keyboard)
         except Exception as err:
             logger.error(f'Ошибка при отправлении сообщения о неудачной отправки содержимого поста: {err}')
         return False

@@ -5,9 +5,8 @@ from aiogram.dispatcher.filters import Text
 from aiogram.types import Message, ReplyKeyboardRemove
 from pyrogram.types import InlineKeyboardMarkup, CallbackQuery, InlineKeyboardButton
 from create_bot import bot_client
-from utils.consts import answers, errors
+from utils.consts import answers, errors, callbacks
 from parse import parse
-import callbacks
 from database.queries.create_queries import create_personal_posts
 from database.queries.delete_queries import delete_user_channel
 from database.queries.get_queries import get_user_channels_usernames

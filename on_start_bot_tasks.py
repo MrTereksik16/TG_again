@@ -7,6 +7,7 @@ from database.queries.update_queries import update_users_views_per_day
 from aiogram import types
 from config import config
 from parse import parse
+from utils.consts import commands
 from utils.custom_types import ChannelPostTypes
 from utils.helpers import add_channels
 
@@ -85,9 +86,11 @@ async def parse_and_create_added_channels_posts():
 
 async def on_start_bot_tasks(dp):
     await dp.bot.set_my_commands([
-        types.BotCommand("start", 'Лента рекомендаций'),
+        types.BotCommand(commands.START, 'Лента рекомендаций'),
+        types.BotCommand(commands.GUIDE, 'Инструкция пользования')
     ])
+
     await scheduler_jobs()
-    await add_channels_in_handler()
     # await add_base_channels()
+    await add_channels_in_handler()
     # await parse_and_create_added_channels_posts()
