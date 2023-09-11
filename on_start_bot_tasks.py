@@ -59,6 +59,7 @@ async def add_channels_in_handler():
         user_client: Client
         for channel_username in all_channels_usernames:
             await user_client.send_message('me', channel_username)
+            time.sleep(1)
 
 
 async def parse_and_create_added_channels_posts():

@@ -10,13 +10,13 @@ from database.queries.delete_queries import delete_premium_channel_post, delete_
 from keyboards import admin_reply_keyboards
 from keyboards import general_reply_buttons_texts
 from keyboards.categories.reply import categories_reply_keyboards
-from keyboards.general.helpers import build_reactions_inline_keyboard
+from keyboards.general.helpers import build_reactions_inline_keyboard, build_reply_buttons, build_reply_keyboard
 from keyboards.personal.reply import personal_reply_keyboards
 from keyboards.recommendations.reply import recommendations_reply_keyboards
 from store.states import *
 from utils.consts import answers, callbacks, commands
 from utils.custom_types import ChannelPostTypes, MarkTypes, Modes
-from utils.helpers import send_post_to_support, get_next_post, send_next_post, send_end_message
+from utils.helpers import send_post_to_support, get_next_post, send_next_post, send_end_message, reset_and_switch_state
 
 
 async def on_guide_command(message: Message):
@@ -36,11 +36,14 @@ async def on_start_message(message: Message, state: FSMContext):
         keyboard = recommendations_reply_keyboards.recommendations_control_keyboard
 
     elif current_state == CategoriesStates.CATEGORIES_FEED.state:
-        user_categories = await get_user_categories(user_tg_id)
-        if not user_categories:
-            return await message.answer('Сперва нужно добавить хотя бы одну категорию')
-        keyboard = categories_reply_keyboards.categories_control_keyboard
         mode = Modes.CATEGORIES
+        user_categories = await get_user_categories(user_tg_id)
+
+        if not user_categories:
+            await reset_and_switch_state(state, CategoriesStates.GET_USER_CATEGORIES)
+            return await message.answer('Сперва нужно добавить хотя бы одну категорию')
+
+        await reset_and_switch_state(state, CategoriesStates.CATEGORIES_FEED)
         next_post = await get_next_post(user_tg_id, mode)
 
     elif current_state == PersonalStates.PERSONAL_FEED.state:

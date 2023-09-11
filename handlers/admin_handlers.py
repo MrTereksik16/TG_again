@@ -480,7 +480,7 @@ async def on_receiver_phone_number_message(message: Message, state: FSMContext):
     bot = await bot_client.get_me()
     answer = f'<b>Статистика {bot.first_name}</b>:\n\n'
     answer += f'{(await state.get_data())["statistic"]}\n\n'
-    answer += f'{answers.RATES_MESSAGE_TEXT}'
+    # answer += f'{answers.RATES_MESSAGE_TEXT}'
 
     try:
         await bot_client.send_message(message.text, answer)
