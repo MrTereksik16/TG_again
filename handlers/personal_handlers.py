@@ -63,7 +63,7 @@ async def on_personal_channels_message(message: Message, state: FSMContext):
     user_tg_id = message.from_user.id
     channel_type = ChannelPostTypes.PERSONAL
     channels = message.text
-    result = await add_channels(channels, channel_type=channel_type, user_tg_id=user_tg_id, )
+    result = await add_channels(channels, channel_type=channel_type, user_tg_id=user_tg_id)
 
     answer = result.answer
     to_parse = result.to_parse

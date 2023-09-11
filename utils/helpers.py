@@ -200,7 +200,7 @@ async def add_channels(channels: str, channel_type: ChannelPostTypes, user_tg_id
             not_added.append(link)
             continue
 
-        channel_username = channel_entity.username
+        channel_username = channel_entity.username or link.split("/")[-1].split("?")[0].replace("@", "")
         channel_tg_id = clean_channel_id(channel_entity.id)
 
         result = None

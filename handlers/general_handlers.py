@@ -38,6 +38,7 @@ async def on_start_message(message: Message, state: FSMContext):
     elif current_state == CategoriesStates.CATEGORIES_FEED.state:
         mode = Modes.CATEGORIES
         user_categories = await get_user_categories(user_tg_id)
+        keyboard = categories_reply_keyboards.categories_control_keyboard
 
         if not user_categories:
             await reset_and_switch_state(state, CategoriesStates.GET_USER_CATEGORIES)
@@ -58,7 +59,6 @@ async def on_start_message(message: Message, state: FSMContext):
 
     if user_is_admin and current_state != PersonalStates.PERSONAL_FEED.state:
         keyboard = recommendations_reply_keyboards.recommendations_admin_control_keyboard
-
         if current_state == CategoriesStates.CATEGORIES_FEED.state:
             keyboard = categories_reply_keyboards.categories_admin_control_keyboard
 
@@ -313,8 +313,6 @@ async def on_report_button_click(callback: CallbackQuery):
     except Exception as err:
         logger.error(f'Ошибка при удалении поста из ленты пользователя: {err}')
     await send_post_to_support(viewed_post)
-
-    await send_next_post(user_tg_id, chat_id, mode)
 
 
 async def on_delete_post_button_click(callback: CallbackQuery):
