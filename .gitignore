@@ -4,4 +4,4 @@ media/*
 *.session-journal
 *.log
 **/__pycache__/
-config/*
+config/config.py
