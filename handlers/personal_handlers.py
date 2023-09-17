@@ -13,7 +13,7 @@ from database.queries.get_queries import get_user_channels_usernames
 from keyboards import personal_inline_keyboards
 from keyboards import personal_reply_keyboards
 from store.states import PersonalStates
-from utils.helpers import add_channels, reset_and_switch_state, send_next_post, send_end_message, get_next_post
+from utils.helpers import add_channels, reset_and_switch_state, send_next_posts, send_end_message, get_next_posts
 from keyboards import personal_reply_buttons_texts, general_reply_buttons_texts, general_reply_keyboards
 from utils.custom_types import ChannelPostTypes, Modes
 
@@ -26,7 +26,7 @@ async def on_personal_feed_message(message: Message, state: FSMContext):
     user_channels = await get_user_channels_usernames(user_tg_id)
 
     if user_channels:
-        next_post = await get_next_post(user_tg_id, mode)
+        next_post = await get_next_posts(user_tg_id, mode)
         keyboard = personal_reply_keyboards.personal_start_control_keyboard
 
         if next_post:
@@ -34,7 +34,7 @@ async def on_personal_feed_message(message: Message, state: FSMContext):
         await message.answer(answers.PERSONAL_FEED_MESSAGE_TEXT, reply_markup=keyboard)
 
         if next_post:
-            await send_next_post(user_tg_id, chat_id, mode)
+            await send_next_posts(user_tg_id, chat_id, mode)
         else:
             await send_end_message(user_tg_id, chat_id, mode)
     else:

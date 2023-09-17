@@ -118,7 +118,7 @@ async def get_user_personal_posts(user_tg_id: int) -> list:
         join personal_channel on personal_channel.id = user_channel.channel_id and user_channel.user_id = {user_tg_id}
         left join user_viewed_personal_post uvpp on posts.id = uvpp.personal_post_id and uvpp.user_id = {user_tg_id}
         where uvpp.user_id is NULL
-        group by channel_id
+        group by channel_id limit 10
         '''
 
         records = session.execute(text(query))
@@ -226,7 +226,7 @@ async def get_not_viewed_categories_posts(user_tg_id) -> list:
                 left join user_viewed_category_post uvcp on posts.id = uvcp.category_post_id and uvcp.user_id = {user_tg_id}
                 where uvcp.user_id is null
             ) subquery
-            where row_num = 1
+            where row_num = 1 limit 10
         '''
 
         records = session.execute(text(query))
@@ -251,7 +251,7 @@ async def get_best_categories_posts(user_tg_id) -> list:
             join category c on cc.category_id = c.id
             left join user_viewed_category_post uvcp on posts.id = uvcp.category_post_id and uvcp.user_id = {user_tg_id}
             where (counter is NULL or counter = 0) and (mark_type_id is null or mark_type_id != {MarkTypes.REPORT})
-        ) subquery where likes >= dislikes and row_num = 1 order by rand()
+        ) subquery where likes >= dislikes and row_num = 1 order by rand() limit 15
         '''
 
         records = session.execute(text(query))

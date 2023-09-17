@@ -4,19 +4,20 @@ from aiogram.dispatcher.filters import Text
 from aiogram.types import Message, CallbackQuery
 from config.config import ADMINS
 from create_bot import bot_client
+from database.queries.create_queries import create_user_event
 from database.queries.get_queries import *
 from database.queries.update_queries import *
 from database.queries.delete_queries import delete_premium_channel_post, delete_category_channel_post, delete_user_channel_post
 from keyboards import admin_reply_keyboards
 from keyboards import general_reply_buttons_texts
 from keyboards.categories.reply import categories_reply_keyboards
-from keyboards.general.helpers import build_reactions_inline_keyboard, build_reply_buttons, build_reply_keyboard
+from keyboards.general.helpers import build_reactions_inline_keyboard
 from keyboards.personal.reply import personal_reply_keyboards
 from keyboards.recommendations.reply import recommendations_reply_keyboards
 from store.states import *
 from utils.consts import answers, callbacks, commands
-from utils.custom_types import ChannelPostTypes, MarkTypes, Modes
-from utils.helpers import send_post_to_support, get_next_post, send_next_post, send_end_message, reset_and_switch_state
+from utils.custom_types import ChannelPostTypes, MarkTypes, Modes, UserEventsTypes
+from utils.helpers import send_post_to_support, get_next_posts, send_next_posts, send_end_message, reset_and_switch_state
 
 
 async def on_guide_command(message: Message):
@@ -32,7 +33,7 @@ async def on_start_message(message: Message, state: FSMContext):
 
     if current_state == RecommendationsStates.RECOMMENDATIONS_FEED.state:
         mode = Modes.RECOMMENDATIONS
-        next_post = await get_next_post(user_tg_id, mode)
+        next_posts = await get_next_posts(user_tg_id, mode)
         keyboard = recommendations_reply_keyboards.recommendations_control_keyboard
 
     elif current_state == CategoriesStates.CATEGORIES_FEED.state:
@@ -45,7 +46,7 @@ async def on_start_message(message: Message, state: FSMContext):
             return await message.answer('Сперва нужно добавить хотя бы одну категорию')
 
         await reset_and_switch_state(state, CategoriesStates.CATEGORIES_FEED)
-        next_post = await get_next_post(user_tg_id, mode)
+        next_posts = await get_next_posts(user_tg_id, mode)
 
     elif current_state == PersonalStates.PERSONAL_FEED.state:
         user_channels = await get_user_channels_usernames(user_tg_id)
@@ -53,7 +54,7 @@ async def on_start_message(message: Message, state: FSMContext):
             return await message.answer('Сперва нужно добавить хотя бы один канал')
         keyboard = personal_reply_keyboards.personal_control_keyboard
         mode = Modes.PERSONAL
-        next_post = await get_next_post(user_tg_id, mode)
+        next_posts = await get_next_posts(user_tg_id, mode)
     else:
         return None
 
@@ -62,11 +63,12 @@ async def on_start_message(message: Message, state: FSMContext):
         if current_state == CategoriesStates.CATEGORIES_FEED.state:
             keyboard = categories_reply_keyboards.categories_admin_control_keyboard
 
-    if next_post:
+    if next_posts:
         await message.answer(answers.PRE_SCROLL_MESSAGE_TEXT, reply_markup=keyboard)
-        await send_next_post(user_tg_id, chat_id, mode, next_post)
+        await send_next_posts(user_tg_id, chat_id, mode, next_posts)
     else:
         await send_end_message(user_tg_id, chat_id, mode)
+    await create_user_event(user_tg_id, UserEventsTypes.USED)
 
 
 async def on_skip_message(message: Message, state: FSMContext):
@@ -77,15 +79,17 @@ async def on_skip_message(message: Message, state: FSMContext):
 
     if current_state == RecommendationsStates.RECOMMENDATIONS_FEED.state:
         mode = Modes.RECOMMENDATIONS
-        await send_next_post(user_tg_id, chat_id, mode)
+        await send_next_posts(user_tg_id, chat_id, mode)
     elif current_state == CategoriesStates.CATEGORIES_FEED.state:
         mode = Modes.CATEGORIES
-        await send_next_post(user_tg_id, chat_id, mode)
+        await send_next_posts(user_tg_id, chat_id, mode)
     elif current_state == PersonalStates.PERSONAL_FEED.state:
         mode = Modes.PERSONAL
-        await send_next_post(user_tg_id, chat_id, mode)
+        await send_next_posts(user_tg_id, chat_id, mode)
     else:
         return None
+
+    await create_user_event(user_tg_id, UserEventsTypes.USED)
 
 
 async def on_admin_panel_message(message: Message, state: FSMContext):
@@ -167,7 +171,7 @@ async def on_like_button_click(callback: CallbackQuery):
             await callback.answer('Обновлено')
         else:
             await callback.answer('Вы можете лайкнуть пост единожды')
-        return await send_next_post(user_tg_id, chat_id, mode)
+        return await send_next_posts(user_tg_id, chat_id, mode)
     elif mark_type_id == MarkTypes.DISLIKE or mark_type_id == MarkTypes.NEUTRAL:
         await update_daily_likes()
         if mark_type_id == MarkTypes.DISLIKE:
@@ -175,7 +179,7 @@ async def on_like_button_click(callback: CallbackQuery):
 
     await bot_client.edit_message_reply_markup(chat_id, message_id, reply_markup=keyboard)
     await callback.answer('Лайк')
-    await send_next_post(user_tg_id, chat_id, mode)
+    await send_next_posts(user_tg_id, chat_id, mode)
 
 
 async def on_dislike_button_click(callback: CallbackQuery):
@@ -252,7 +256,7 @@ async def on_dislike_button_click(callback: CallbackQuery):
             await callback.answer('Обновлено')
         else:
             await callback.answer('Вы можете дизлайкнуть пост единожды')
-        return await send_next_post(user_tg_id, chat_id, mode)
+        return await send_next_posts(user_tg_id, chat_id, mode)
     elif mark_type_id == MarkTypes.LIKE or mark_type_id == MarkTypes.NEUTRAL:
         await update_daily_dislikes()
         if mark_type_id == MarkTypes.LIKE:
@@ -261,7 +265,7 @@ async def on_dislike_button_click(callback: CallbackQuery):
     await bot_client.edit_message_reply_markup(chat_id, message_id, reply_markup=keyboard)
     await callback.answer('Дизлайк')
 
-    await send_next_post(user_tg_id, chat_id, mode)
+    await send_next_posts(user_tg_id, chat_id, mode)
 
 
 async def on_report_button_click(callback: CallbackQuery):
@@ -301,7 +305,7 @@ async def on_report_button_click(callback: CallbackQuery):
     else:
         await callback.answer('Пост уже удалён')
 
-    await send_next_post(user_tg_id, chat_id, mode)
+    await send_next_posts(user_tg_id, chat_id, mode)
 
     try:
         if hasattr(message.reply_to_message, 'message_id'):

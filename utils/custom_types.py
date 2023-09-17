@@ -1,7 +1,7 @@
 class Modes:
-    RECOMMENDATIONS = 'Рек'
-    PERSONAL = 'Личн'
-    CATEGORIES = 'Катег'
+    RECOMMENDATIONS = 'Рекомендации'
+    PERSONAL = 'Личная'
+    CATEGORIES = 'Категории'
 
     def __new__(cls, value: str):
         if value == cls.RECOMMENDATIONS:
@@ -31,6 +31,11 @@ class MarkTypes:
     DISLIKE = 2
     NEUTRAL = 3
     REPORT = 4
+
+
+class UserEventsTypes:
+    REGISTRATION = 1
+    USED = 2
 
 
 class AddChannelsResult:

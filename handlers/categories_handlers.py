@@ -13,7 +13,7 @@ from keyboards.general.helpers import build_reply_buttons, build_reply_keyboard
 from store.states import CategoriesStates
 from utils.consts import answers, errors
 from utils.custom_types import Modes
-from utils.helpers import convert_list_of_items_to_string, reset_and_switch_state, send_next_post, send_end_message, get_next_post
+from utils.helpers import convert_list_of_items_to_string, reset_and_switch_state, send_next_posts, send_end_message, get_next_posts
 
 
 async def on_categories_feed_message(message: Message, state: FSMContext):
@@ -26,9 +26,9 @@ async def on_categories_feed_message(message: Message, state: FSMContext):
     await state.update_data(user_categories=user_categories)
 
     if user_categories:
-        next_post = await get_next_post(user_tg_id, mode)
+        next_posts = await get_next_posts(user_tg_id, mode)
 
-        if next_post:
+        if next_posts:
             keyboard = categories_reply_keyboards.categories_control_keyboard
             if user_is_admin:
                 keyboard = categories_reply_keyboards.categories_admin_control_keyboard
@@ -38,8 +38,8 @@ async def on_categories_feed_message(message: Message, state: FSMContext):
                 keyboard = categories_reply_keyboards.categories_admin_start_control_keyboard
         await message.answer(answers.CATEGORIES_FEED_MESSAGE_TEXT, reply_markup=keyboard)
 
-        if next_post:
-            await send_next_post(user_tg_id, chat_id, mode, next_post)
+        if next_posts:
+            await send_next_posts(user_tg_id, chat_id, mode, next_posts)
         else:
             await send_end_message(user_tg_id, chat_id, mode)
     else:
