@@ -251,7 +251,7 @@ async def get_best_categories_posts(user_tg_id) -> list:
             join category c on cc.category_id = c.id
             left join user_viewed_category_post uvcp on posts.id = uvcp.category_post_id and uvcp.user_id = {user_tg_id}
             where (counter is NULL or counter = 0) and (mark_type_id is null or mark_type_id != {MarkTypes.REPORT})
-        ) subquery where likes >= dislikes and row_num = 1 order by rand() limit 15
+        ) subquery where likes >= dislikes and row_num = 1 order by rand() limit 10
         '''
 
         records = session.execute(text(query))

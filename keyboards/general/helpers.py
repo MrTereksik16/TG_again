@@ -11,6 +11,13 @@ def build_reply_buttons(texts: list[str | int]) -> list[KeyboardButton]:
         buttons.append(KeyboardButton(text=category))
     return buttons
 
+def build_start_inline_keyboards(mode: Modes) -> InlineKeyboardMarkup:
+    callback_data = f'{callbacks.START}:{mode}'.encode()
+    start_button = InlineKeyboardButton(general_inline_buttons_texts.START_BUTTON_TEXT,
+                                       callback_data=callback_data)
+    keyboard = InlineKeyboardMarkup([[start_button]])
+    return keyboard
+
 
 def build_reply_keyboard(buttons: list[KeyboardButton], n_cols: int = 2, header_buttons: list[KeyboardButton] | KeyboardButton = None,
                          footer_buttons: list = None) -> ReplyKeyboardMarkup:
@@ -51,7 +58,12 @@ def build_reactions_inline_keyboard(likes: int, dislikes: int, post_type: Channe
     report_button = InlineKeyboardButton(general_inline_buttons_texts.REPORT_BUTTON_TEXT,
                                          callback_data=callback_data)
 
-    keyboard = InlineKeyboardMarkup([[like_button, dislike_button, report_button]])
+    callback_data = f'{callbacks.NEXT}:{mode}'.encode()
+    next_button = InlineKeyboardButton(general_inline_buttons_texts.NEXT_BUTTON_TEXT,
+                                       callback_data=callback_data)
+
+
+    keyboard = InlineKeyboardMarkup([[like_button, dislike_button, report_button], [next_button]])
 
     return keyboard
 
