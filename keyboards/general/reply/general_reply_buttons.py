@@ -8,6 +8,4 @@ to_admin_panel_button = KeyboardButton(TO_ADMIN_PANEL_BUTTON_TEXT)
 
 cancel_button = KeyboardButton(CANCEL_BUTTON_TEXT)
 
-skip_button = KeyboardButton(SKIP_BUTTON_TEXT)
-start_button = KeyboardButton(START_BUTTON_TEXT)
 close_button = KeyboardButton(CLOSE_BUTTON_TEXT)

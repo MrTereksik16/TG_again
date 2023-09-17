@@ -52,6 +52,7 @@ async def get_next_posts(user_tg_id: int, mode: Modes):
         for post in categories_best_posts:
             next_posts.append(post)
 
+    print(next_posts)
     return next_posts
 
 

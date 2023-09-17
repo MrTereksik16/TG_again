@@ -71,9 +71,9 @@ async def on_start_message(message: Message, state: FSMContext):
     await create_user_event(user_tg_id, UserEventsTypes.USED)
 
 
-async def on_skip_message(message: Message, state: FSMContext):
-    user_tg_id = message.from_user.id
-    chat_id = message.chat.id
+async def on_skip_message(callback: CallbackQuery, state: FSMContext):
+    user_tg_id = callback.from_user.id
+    chat_id = callback.message.chat.id
     current_state = await state.get_state()
     await update_last_visit_time(user_tg_id)
 
@@ -370,15 +370,15 @@ def register_generals_handlers(dp: Dispatcher):
         state='*'
     )
 
-    dp.register_message_handler(
+    dp.register_callback_query_handler(
         on_start_message,
-        Text(equals=[general_reply_buttons_texts.START_BUTTON_TEXT]),
+        Text(startswith=[general_reply_buttons_texts.START_BUTTON_TEXT]),
         state=[RecommendationsStates.RECOMMENDATIONS_FEED, CategoriesStates.CATEGORIES_FEED, PersonalStates.PERSONAL_FEED],
     )
 
-    dp.register_message_handler(
+    dp.register_callback_query_handler(
         on_skip_message,
-        Text(equals=general_reply_buttons_texts.SKIP_BUTTON_TEXT),
+        Text(startswith=callbacks.NEXT),
         state='*'
     )
 

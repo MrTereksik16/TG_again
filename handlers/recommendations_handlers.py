@@ -8,6 +8,7 @@ from database.queries.create_queries import create_user, create_user_event
 from database.queries.get_queries import get_user
 from database.queries.update_queries import update_last_visit_time, update_daily_new_users_amount
 from keyboards import recommendations_reply_keyboards
+from keyboards.general.helpers import build_start_inline_keyboards
 from store.states import RecommendationsStates
 from utils.consts import answers, errors, commands
 from keyboards import general_reply_buttons_texts
@@ -59,7 +60,9 @@ async def on_recommendations_feed_message(message: Message, state: FSMContext):
         if user_is_admin:
             keyboard = recommendations_reply_keyboards.recommendations_admin_start_control_keyboard
 
-    await message.answer(answers.RECOMMENDATIONS_FEED_MESSAGE_TEXT, reply_markup=keyboard)
+    keyboard = build_start_inline_keyboards(mode)
+
+    await bot_client.send_message(chat_id, answers.RECOMMENDATIONS_FEED_MESSAGE_TEXT, reply_markup=keyboard)
 
     if next_post:
         await send_next_posts(user_tg_id, chat_id, mode, next_post)
