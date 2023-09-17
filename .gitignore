@@ -5,3 +5,4 @@ media/*
 *.log
 **/__pycache__/
 config/config.py
+migrations/versions

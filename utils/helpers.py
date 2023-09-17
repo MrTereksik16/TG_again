@@ -31,30 +31,28 @@ def convert_list_of_items_to_string(items: list, code: bool = True) -> str:
         return '\n' + ''.join([f'{i}.  {value}\n' for i, value in enumerate(items, start=1)])
 
 
-async def get_next_post(user_tg_id: int, mode: Modes):
-    next_post = None
+async def get_next_posts(user_tg_id: int, mode: Modes):
+    next_posts = None
 
     if mode == Modes.PERSONAL:
-        posts = await get_user_personal_posts(user_tg_id)
-        next_post = choose_post(posts)
+        next_posts = await get_user_personal_posts(user_tg_id)
     elif mode == Modes.CATEGORIES:
-        posts = await get_not_viewed_categories_posts(user_tg_id)
-        next_post = choose_post(posts)
+        next_posts = await get_not_viewed_categories_posts(user_tg_id)
     elif mode == Modes.RECOMMENDATIONS:
         await update_user_viewed_premium_posts_counters(user_tg_id)
         await update_user_viewed_category_posts_counters(user_tg_id)
 
-        posts = []
+        next_posts = []
         premium_best_posts = await get_premium_posts(user_tg_id)
         categories_best_posts = await get_best_categories_posts(user_tg_id)
 
         for post in premium_best_posts:
-            posts.append(post)
+            next_posts.append(post)
 
         for post in categories_best_posts:
-            posts.append(post)
-        next_post = choose_post(posts)
-    return next_post
+            next_posts.append(post)
+
+    return next_posts
 
 
 def choose_post(posts: list):
@@ -72,91 +70,93 @@ def choose_post(posts: list):
     return posts[0]
 
 
-async def send_next_post(user_tg_id: int, chat_id: int, mode: Modes, post=None):
-    if not post:
-        post = await get_next_post(user_tg_id, mode)
-        if not post:
+async def send_next_posts(user_tg_id: int, chat_id: int, mode: Modes, posts=None):
+    if not posts:
+        posts = await get_next_posts(user_tg_id, mode)
+        if not posts:
             return await send_end_message(user_tg_id, chat_id, mode)
-    entities = pickle.loads(post.entities)
-    media_path = post.media_path
-    likes = post.likes
-    dislikes = post.dislikes
-    post_id = post.id
-    channel_username = post.channel_username
-    message_text = f'{post.text}\n\nПост с канала @{channel_username}'
-    message_text_len = len(message_text)
+    for post in posts:
+        entities = pickle.loads(post.entities)
+        media_path = post.media_path
+        likes = post.likes
+        dislikes = post.dislikes
+        post_id = post.id
+        channel_username = post.channel_username
+        message_text = f'{post.text}\n\nПост с канала @{channel_username}'
+        message_text_len = len(message_text)
 
-    if mode == Modes.CATEGORIES:
-        category = post.name + post.emoji
-        message_text += f'\nКатегория: {category}'
+        if mode == Modes.CATEGORIES:
+            category = post.name + post.emoji
+            message_text += f'\nКатегория: {category}'
 
-    reactions_keyboard = ReplyKeyboardRemove()
+        reactions_keyboard = ReplyKeyboardRemove()
 
-    if mode == Modes.RECOMMENDATIONS:
-        if hasattr(post, 'premium_channel_id'):
-            result = await create_user_viewed_premium_post(user_tg_id, post_id)
-            if result == errors.DUPLICATE_ERROR_TEXT:
-                await update_user_viewed_premium_post_counter(user_tg_id, post_id)
+        if mode == Modes.RECOMMENDATIONS:
+            if hasattr(post, 'premium_channel_id'):
+                result = await create_user_viewed_premium_post(user_tg_id, post_id)
+                if result == errors.DUPLICATE_ERROR_TEXT:
+                    await update_user_viewed_premium_post_counter(user_tg_id, post_id)
 
-            reactions_keyboard = build_reactions_inline_keyboard(likes, dislikes, ChannelPostTypes.PREMIUM, post_id, mode)
+                reactions_keyboard = build_reactions_inline_keyboard(likes, dislikes, ChannelPostTypes.PREMIUM, post_id, mode)
 
-        elif hasattr(post, 'category_channel_id'):
-            result = await create_user_viewed_category_post(user_tg_id, post_id)
-            if result == errors.DUPLICATE_ERROR_TEXT:
-                await update_user_viewed_category_post_counter(user_tg_id, post_id)
+            elif hasattr(post, 'category_channel_id'):
+                result = await create_user_viewed_category_post(user_tg_id, post_id)
+                if result == errors.DUPLICATE_ERROR_TEXT:
+                    await update_user_viewed_category_post_counter(user_tg_id, post_id)
 
+                reactions_keyboard = build_reactions_inline_keyboard(likes, dislikes, ChannelPostTypes.CATEGORY, post_id, mode)
+
+        elif mode == Modes.CATEGORIES:
+            await create_user_viewed_category_post(user_tg_id, post_id)
             reactions_keyboard = build_reactions_inline_keyboard(likes, dislikes, ChannelPostTypes.CATEGORY, post_id, mode)
 
-    elif mode == Modes.CATEGORIES:
-        await create_user_viewed_category_post(user_tg_id, post_id)
-        reactions_keyboard = build_reactions_inline_keyboard(likes, dislikes, ChannelPostTypes.CATEGORY, post_id, mode)
+        elif mode == Modes.PERSONAL:
+            await create_user_viewed_personal_post(user_tg_id, post_id)
+            reactions_keyboard = build_reactions_inline_keyboard(likes, dislikes, ChannelPostTypes.PERSONAL, post_id, mode)
 
-    elif mode == Modes.PERSONAL:
-        await create_user_viewed_personal_post(user_tg_id, post_id)
-        reactions_keyboard = build_reactions_inline_keyboard(likes, dislikes, ChannelPostTypes.PERSONAL, post_id, mode)
+        try:
+            if not media_path:
+                await bot_client.send_message(chat_id, message_text, entities=entities, reply_markup=reactions_keyboard, disable_notification=True)
+            else:
+                if media_path.endswith('.jpg'):
+                    await bot_client.send_chat_action(chat_id, action=ChatAction.UPLOAD_PHOTO)
+                    if message_text_len > 1024:
+                        message = await bot_client.send_photo(chat_id, media_path)
+                        await bot_client.send_message(chat_id, text=message_text, entities=entities, reply_to_message_id=message.id,
+                                                      reply_markup=reactions_keyboard, disable_notification=True)
+                    else:
+                        await bot_client.send_photo(chat_id, media_path, caption=message_text, caption_entities=entities,
+                                                    reply_markup=reactions_keyboard, disable_notification=True)
+                elif media_path.endswith('.mp4'):
+                    await bot_client.send_chat_action(chat_id, action=ChatAction.UPLOAD_VIDEO)
+                    if message_text_len > 1024:
+                        message = await bot_client.send_video(chat_id, media_path)
+                        await bot_client.send_message(chat_id, message_text, entities=entities, reply_markup=reactions_keyboard,
+                                                      reply_to_message_id=message.id, disable_notification=True)
+                    else:
+                        await bot_client.send_video(chat_id, media_path, caption=message_text, caption_entities=entities,
+                                                    reply_markup=reactions_keyboard, disable_notification=True)
 
-    try:
-        if not media_path:
-            await bot_client.send_message(chat_id, message_text, entities=entities, reply_markup=reactions_keyboard)
-        else:
-            if media_path.endswith('.jpg'):
-                await bot_client.send_chat_action(chat_id, action=ChatAction.UPLOAD_PHOTO)
-                if message_text_len > 1024:
-                    message = await bot_client.send_photo(chat_id, media_path)
-                    await bot_client.send_message(chat_id, text=message_text, entities=entities, reply_to_message_id=message.id,
-                                                  reply_markup=reactions_keyboard)
-                else:
-                    await bot_client.send_photo(chat_id, media_path, caption=message_text, caption_entities=entities, reply_markup=reactions_keyboard)
-            elif media_path.endswith('.mp4'):
-                await bot_client.send_chat_action(chat_id, action=ChatAction.UPLOAD_VIDEO)
-                if message_text_len > 1024:
-                    message = await bot_client.send_video(chat_id, media_path)
+                elif os.path.isdir(media_path):
+                    media_group = []
+                    files = os.listdir(media_path)
+                    for file in files:
+                        if file.endswith('.jpg'):
+                            await bot_client.send_chat_action(chat_id, action=ChatAction.UPLOAD_PHOTO)
+                            path = os.path.join(media_path, file)
+                            media_group.append(InputMediaPhoto(path))
+                        elif file.endswith('.mp4'):
+                            await bot_client.send_chat_action(chat_id, action=ChatAction.UPLOAD_PHOTO)
+                            path = os.path.join(media_path, file)
+                            media_group.append(InputMediaVideo(path))
+                    message = await bot_client.send_media_group(chat_id, media_group, disable_notification=True)
                     await bot_client.send_message(chat_id, message_text, entities=entities, reply_markup=reactions_keyboard,
-                                                  reply_to_message_id=message.id)
-                else:
-                    await bot_client.send_video(chat_id, media_path, caption=message_text, caption_entities=entities, reply_markup=reactions_keyboard)
-
-            elif os.path.isdir(media_path):
-                media_group = []
-                files = os.listdir(media_path)
-                for file in files:
-                    if file.endswith('.jpg'):
-                        await bot_client.send_chat_action(chat_id, action=ChatAction.UPLOAD_PHOTO)
-                        path = os.path.join(media_path, file)
-                        media_group.append(InputMediaPhoto(path))
-                    elif file.endswith('.mp4'):
-                        await bot_client.send_chat_action(chat_id, action=ChatAction.UPLOAD_PHOTO)
-                        path = os.path.join(media_path, file)
-                        media_group.append(InputMediaVideo(path))
-                message = await bot_client.send_media_group(chat_id, media_group)
-                await bot_client.send_message(chat_id, message_text, entities=entities, reply_markup=reactions_keyboard,
-                                              reply_to_message_id=message[0].id)
-        await update_users_views_per_day(user_tg_id)
-        return True
-    except Exception as err:
-        await bot_client.send_message(chat_id, 'Упс. Не получилось отправить этот пост 😬', reply_markup=reactions_keyboard)
-        logger.error(f'Ошибка при отправлении поста пользователю: {err}\n{post}\nMessage entities: {entities}')
-        return False
+                                                  reply_to_message_id=message[0].id, disable_notification=True)
+            await update_users_views_per_day(user_tg_id)
+            await update_daily_views()
+        except Exception as err:
+            await bot_client.send_message(chat_id, 'Упс. Не получилось отправить этот пост 😬', reply_markup=reactions_keyboard)
+            logger.error(f'Ошибка при отправлении поста пользователю: {err}\n{post}\nMessage entities: {entities}')
 
 
 async def send_end_message(user_tg_id: int, chat_id: int, mode: Modes):

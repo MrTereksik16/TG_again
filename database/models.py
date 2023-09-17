@@ -1,4 +1,4 @@
-from sqlalchemy.sql.sqltypes import BLOB, DateTime, Date
+from sqlalchemy.sql.sqltypes import BLOB, Date, TIMESTAMP
 from sqlalchemy.dialects.mysql import BIGINT, INTEGER, TINYINT
 from sqlalchemy import Column, Integer, String, ForeignKey, Text, func
 from sqlalchemy.orm import relationship
@@ -13,10 +13,11 @@ class User(Base):
     first_name = Column(String(40))
     last_name = Column(String(40))
     username = Column(String(40))
-    created_at = Column(DateTime(), server_default=func.now())
-    visited_at = Column(DateTime(), server_default=func.now())
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    visited_at = Column(TIMESTAMP, server_default=func.now())
     views_per_day = Column(INTEGER(unsigned=True), default=0)
 
+    user_event_type_connection = relationship('UserEvent', cascade='all, delete', back_populates='user_connection')
     user_channel_connection = relationship('UserChannel', cascade='all, delete', back_populates='user_connection')
     user_category_connection = relationship('UserCategory', cascade='all, delete', back_populates='user_connection')
     user_viewed_premium_post_connection = relationship('UserViewedPremiumPost', cascade='all, delete', back_populates='user_connection')
@@ -24,7 +25,34 @@ class User(Base):
     user_viewed_personal_post_connection = relationship('UserViewedPersonalPost', cascade='all, delete', back_populates='user_connection')
 
     def __repr__(self):
-        return f'<User(id={self.id}, last_post_id={self.last_post_id})>'
+        return f'<User(id={self.id}, first_name={self.first_name}, last_name={self.last_name}, username={self.username}, created_at={self.created_at}, visited_at={self.visited_at}, views_per_day={self.views_per_day})>'
+
+
+class EventType(Base):
+    __tablename__ = 'event'
+
+    id = Column(TINYINT(unsigned=True), primary_key=True, autoincrement=True)
+    name = Column(String(36), unique=True)
+
+    user_event_type_connection = relationship('UserEvent', back_populates='event_type_connection')
+
+    def __repr__(self):
+        return f'<Events(id={self.id}, name={self.name})>'
+
+
+class UserEvent(Base):
+    __tablename__ = 'user_event'
+
+    id = Column(BIGINT(unsigned=True), primary_key=True, autoincrement=True, nullable=False)
+    user_id = Column(BIGINT(unsigned=True), ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
+    event_type_id = Column(TINYINT(unsigned=True), ForeignKey('event.id', ondelete='CASCADE'), nullable=False)
+    event_datetime = Column(TIMESTAMP, default=func.now(), nullable=False)
+
+    user_connection = relationship('User', back_populates='user_event_type_connection')
+    event_type_connection = relationship('EventType', back_populates='user_event_type_connection')
+
+    def __repr__(self):
+        return f'<UserChannel(user_id={self.user_id}, channel_id={self.channel_id})>'
 
 
 class UserChannel(Base):
@@ -251,6 +279,7 @@ class DailyStatistic(Base):
     new_users_amount = Column(INTEGER(unsigned=True), default=0)
     likes = Column(INTEGER(unsigned=True), default=0)
     dislikes = Column(INTEGER(unsigned=True), default=0)
+    views = Column(INTEGER(unsigned=True), default=0)
 
     def __repr__(self):
         return f'<DailyStatistic(date_today={self.date_today}, new_users_amount={self.new_users_amount}, likes={self.likes},dislikes={self.dislikes})>'

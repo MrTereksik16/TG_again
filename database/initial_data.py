@@ -1,9 +1,10 @@
 from sqlalchemy import text
 from config.logging_config import logger
 from database.create_db import Session
-from database.models import Category, MarkType, Coefficient
+from database.models import Category, MarkType, Coefficient, EventType
 from parse import parse
 from utils.consts.categories import CATEGORIES, CATEGORIES_EMOJI
+from utils.custom_types import UserEventsTypes
 
 
 def create_initial_data():
@@ -50,6 +51,14 @@ def create_initial_data():
         new_coefficient = Coefficient(value=5)
         session.add(new_coefficient)
         session.commit()
-
+    except Exception as err:
+        logger.error(err)
+    session = Session()
+    try:
+        new_event_type = EventType(id=UserEventsTypes.REGISTRATION, name='Зарегистрировался')
+        session.add(new_event_type)
+        new_event_type = EventType(id=UserEventsTypes.USED, name='Воспользовался')
+        session.add(new_event_type)
+        session.commit()
     except Exception as err:
         logger.error(err)

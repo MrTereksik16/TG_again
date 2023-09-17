@@ -91,7 +91,7 @@ async def on_start_bot_tasks(dp):
         types.BotCommand(commands.GUIDE, 'Инструкция пользования')
     ])
 
-    # await scheduler_jobs()
+    await scheduler_jobs()
     # await add_base_channels()
     # await add_channels_in_handler()
     # await parse_and_create_added_channels_posts()

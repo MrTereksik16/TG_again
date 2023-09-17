@@ -4,15 +4,15 @@ from aiogram.dispatcher.filters import Text
 from aiogram.types import Message
 from config.config import ADMINS
 from create_bot import bot, bot_client
-from database.queries.create_queries import create_user
+from database.queries.create_queries import create_user, create_user_event
 from database.queries.get_queries import get_user
 from database.queries.update_queries import update_last_visit_time, update_daily_new_users_amount
 from keyboards import recommendations_reply_keyboards
 from store.states import RecommendationsStates
 from utils.consts import answers, errors, commands
 from keyboards import general_reply_buttons_texts
-from utils.custom_types import Modes
-from utils.helpers import send_next_post, send_end_message, get_next_post
+from utils.custom_types import Modes, UserEventsTypes
+from utils.helpers import send_next_posts, send_end_message, get_next_posts
 
 
 async def on_start_command(message: Message, state: FSMContext):
@@ -35,7 +35,9 @@ async def on_start_command(message: Message, state: FSMContext):
         bot_username = bot_info.first_name
         await message.answer(answers.NEW_START_MESSAGE_TEXT.format(bot_username=bot_username), reply_markup=keyboard)
         await update_daily_new_users_amount()
+        await create_user_event(user_tg_id, UserEventsTypes.REGISTRATION)
     else:
+        await create_user_event(user_tg_id, UserEventsTypes.USED)
         await update_last_visit_time(user_tg_id)
         await message.answer(answers.RECOMMENDATIONS_FEED_MESSAGE_TEXT, reply_markup=keyboard)
 
@@ -46,7 +48,7 @@ async def on_recommendations_feed_message(message: Message, state: FSMContext):
     chat_id = message.chat.id
     user_is_admin = user_tg_id in ADMINS
     mode = Modes.RECOMMENDATIONS
-    next_post = await get_next_post(user_tg_id, mode)
+    next_post = await get_next_posts(user_tg_id, mode)
 
     if next_post:
         keyboard = recommendations_reply_keyboards.recommendations_control_keyboard
@@ -60,7 +62,7 @@ async def on_recommendations_feed_message(message: Message, state: FSMContext):
     await message.answer(answers.RECOMMENDATIONS_FEED_MESSAGE_TEXT, reply_markup=keyboard)
 
     if next_post:
-        await send_next_post(user_tg_id, chat_id, mode, next_post)
+        await send_next_posts(user_tg_id, chat_id, mode, next_post)
     else:
         await send_end_message(user_tg_id, chat_id, mode)
 

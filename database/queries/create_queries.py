@@ -3,7 +3,7 @@ from utils.consts import errors
 from config.logging_config import logger
 from database.models import UserChannel, User, PersonalPost, PersonalChannel, UserCategory, \
     PremiumPost, CategoryChannel, PremiumChannel, CategoryPost, UserViewedPremiumPost, \
-    UserViewedCategoryPost, UserViewedPersonalPost, Category, Coefficient, DailyStatistic
+    UserViewedCategoryPost, UserViewedPersonalPost, Category, Coefficient, DailyStatistic, UserEvent
 from utils.custom_types import Post
 
 
@@ -308,6 +308,22 @@ async def create_daily_statistic():
         return True
     except Exception as err:
         logger.error(f'Ошибка при создании записи дневной статистики: {err}')
+        if errors.DUPLICATE_ERROR_TEXT in str(err):
+            return errors.DUPLICATE_ERROR_TEXT
+        return False
+    finally:
+        session.close()
+
+
+async def create_user_event(user_id: int, event_type_id: int):
+    session = Session()
+    try:
+        new_user_event = UserEvent(user_id=user_id, event_type_id=event_type_id)
+        session.add(new_user_event)
+        session.commit()
+        return True
+    except Exception as err:
+        logger.error(f'Ошибка при создании записи действия пользователя: {err}')
         if errors.DUPLICATE_ERROR_TEXT in str(err):
             return errors.DUPLICATE_ERROR_TEXT
         return False

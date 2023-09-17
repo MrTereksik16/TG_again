@@ -324,6 +324,18 @@ async def update_daily_dislikes(increment: bool = True):
         session.close()
 
 
+async def update_daily_views(views_amount: int = 1):
+    session = Session()
+    try:
+        query = f'update daily_statistic set views = views + {views_amount} where date_today = {func.current_date()}'
+        session.execute(text(query))
+        session.commit()
+    except Exception as err:
+        logger.error(f'Ошибка при обновлении числа просмотров за день: {err}')
+    finally:
+        session.close()
+
+
 async def update_category(old_category_name: str, new_category_name: str, new_category_emoji: str = None) -> bool:
     session = Session()
     try:
