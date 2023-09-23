@@ -1,4 +1,22 @@
+from config import config
+
+
 class Modes:
+    SINGLE_MODE: dict = {'id': 0, 'name': 'Одиночный'}
+    MULTI_MODE: dict = {'id': 1, 'name': 'Мульти'}
+
+    def __new__(cls, value: int):
+        if value == cls.MULTI_MODE['id']:
+            return cls.MULTI_MODE['id']
+        elif value == cls.SINGLE_MODE['id']:
+            return cls.SINGLE_MODE['id']
+
+    @classmethod
+    def get_mods(cls) -> list[dict]:
+        return [cls.SINGLE_MODE, cls.MULTI_MODE]
+
+
+class Feeds:
     RECOMMENDATIONS = 'Рекомендации'
     PERSONAL = 'Личная'
     CATEGORIES = 'Категории'
@@ -6,9 +24,9 @@ class Modes:
     def __new__(cls, value: str):
         if value == cls.RECOMMENDATIONS:
             return cls.RECOMMENDATIONS
-        if value == cls.PERSONAL:
+        elif value == cls.PERSONAL:
             return cls.PERSONAL
-        if value == cls.CATEGORIES:
+        elif value == cls.CATEGORIES:
             return cls.CATEGORIES
 
 
@@ -20,9 +38,9 @@ class ChannelPostTypes:
     def __new__(cls, value: str):
         if value == cls.PREMIUM:
             return cls.PREMIUM
-        if value == cls.PERSONAL:
+        elif value == cls.PERSONAL:
             return cls.PERSONAL
-        if value == cls.CATEGORY:
+        elif value == cls.CATEGORY:
             return cls.CATEGORY
 
 
@@ -75,10 +93,15 @@ class Statistic:
     daily_likes = 0
     daily_dislikes = 0
     user_growth = 0
+    daily_views = 0
 
-    def __init__(self, total_users: int, daily_users: int, daily_likes: int, daily_dislikes: int, user_growth: int):
+    def __init__(self, total_users: int, daily_users: int, daily_likes: int, daily_dislikes: int, user_growth: int, daily_views: int):
         self.total_users = total_users
         self.daily_users = daily_users
         self.daily_likes = daily_likes
         self.daily_dislikes = daily_dislikes
         self.user_growth = user_growth
+        self.daily_views = daily_views
+
+    def __str__(self, user_is_admin: bool = False):
+        return f'<i>Всего пользователей</i>: {self.total_users}\n<i>Новых пользователей</i>: {self.user_growth} 🆕\n<i>Пользовались сегодня</i>: {self.daily_users} 🔥\n<i>Лайков за сегодня</i>: {self.daily_likes} ❤\n<i>Дизлайков за сегодня</i>: {self.daily_dislikes} 👎\n<i>Просмотры за сегодня</i>: {self.daily_views} 👁\n<i>Подробнее</i>: {config.PUBLIC_STATISTIC_URL}'

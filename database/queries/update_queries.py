@@ -173,6 +173,18 @@ async def update_user_viewed_premium_post_counter(user_tg_id: int, post_id: int,
         session.close()
 
 
+async def update_user_mode(user_tg_id: int, mode: int):
+    session = Session()
+    try:
+        query = f'update user set mode = {mode} where id = {user_tg_id}'
+        session.execute(text(query))
+        session.commit()
+    except Exception as err:
+        logger.error(f'Ошибка при обновлении мода пользователя с id={user_tg_id}: {err}')
+    finally:
+        session.close()
+
+
 async def update_user_viewed_category_post_counter(user_tg_id: int, post_id: int, counter_value: int = 15):
     session = Session()
     try:
@@ -269,10 +281,10 @@ async def update_last_visit_time(user_tg_id: int):
         session.close()
 
 
-async def update_users_views_per_day(user_tg_id: int = None, reset: bool = False):
+async def update_users_views_per_day(user_tg_id: int = None, views_amount: int = 1, reset: bool = False):
     session = Session()
     try:
-        query = f'update user set views_per_day = views_per_day + 1 where id={user_tg_id}'
+        query = f'update user set views_per_day = views_per_day + {views_amount} where id={user_tg_id}'
         if reset:
             query = f'update user set views_per_day = 0 where id'
         session.execute(text(query))

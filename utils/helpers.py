@@ -1,6 +1,5 @@
 import os
 import pickle
-import random
 import shutil
 import time
 from re import match, sub
@@ -8,7 +7,7 @@ from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State
 from pyrogram import Client
 from pyrogram.enums import ChatAction
-from pyrogram.types import Message
+from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
 from pyrogram.types import InputMediaPhoto, InputMediaVideo
 from config.config import ADMINS, SUPPORT_CHAT_ID
 from create_bot import bot_client
@@ -16,12 +15,13 @@ from database.queries.create_queries import *
 from database.queries.get_queries import *
 from database.queries.update_queries import *
 from keyboards.general.helpers import build_reactions_inline_keyboard, build_delete_post_keyboard
+from keyboards.general.inline import general_inline_buttons_texts
 from keyboards.general.inline.general_inline_buttons_texts import LIKE_BUTTON_TEXT, DISLIKE_BUTTON_TEXT, REPORT_BUTTON_TEXT
-from utils.consts import answers, errors
+from utils.consts import answers, errors, callbacks
 from keyboards import personal_reply_keyboards, recommendations_reply_keyboards, categories_reply_keyboards
-from utils.custom_types import Modes, ChannelPostTypes, AddChannelsResult
-from pyrogram.types import ReplyKeyboardRemove
+from utils.custom_types import Feeds, ChannelPostTypes, AddChannelsResult, Modes
 from PIL import Image
+from store.states import RecommendationsStates, PersonalStates, CategoriesStates
 
 
 def convert_list_of_items_to_string(items: list, code: bool = True) -> str:
@@ -31,28 +31,29 @@ def convert_list_of_items_to_string(items: list, code: bool = True) -> str:
         return '\n' + ''.join([f'{i}.  {value}\n' for i, value in enumerate(items, start=1)])
 
 
-async def get_next_posts(user_tg_id: int, mode: Modes):
+async def get_next_posts(user_tg_id: int, feed: Feeds, amount: int = None):
     next_posts = None
 
-    if mode == Modes.PERSONAL:
-        next_posts = await get_user_personal_posts(user_tg_id)
-    elif mode == Modes.CATEGORIES:
-        next_posts = await get_not_viewed_categories_posts(user_tg_id)
-    elif mode == Modes.RECOMMENDATIONS:
-        await update_user_viewed_premium_posts_counters(user_tg_id)
+    if feed == Feeds.PERSONAL:
+        posts = await get_user_personal_posts(user_tg_id)
+        next_posts = [posts[0]]
+    elif feed == Feeds.CATEGORIES:
+        posts = await get_not_viewed_categories_posts(user_tg_id)
+        next_posts = [posts[0]]
+    elif feed == Feeds.RECOMMENDATIONS:
+        # await update_user_viewed_premium_posts_counters(user_tg_id)
         await update_user_viewed_category_posts_counters(user_tg_id)
 
         next_posts = []
-        premium_best_posts = await get_premium_posts(user_tg_id)
-        categories_best_posts = await get_best_categories_posts(user_tg_id)
+        # premium_best_posts = await get_premium_posts(user_tg_id)
+        categories_best_posts = await get_best_categories_posts(user_tg_id, amount)
 
-        for post in premium_best_posts:
-            next_posts.append(post)
+        # for post in premium_best_posts:
+        #     next_posts.append(post)
 
         for post in categories_best_posts:
             next_posts.append(post)
 
-    print(next_posts)
     return next_posts
 
 
@@ -60,23 +61,34 @@ def choose_post(posts: list):
     if not posts:
         return None
 
-    total_weight = sum(post.coefficient for post in posts)
-    random_num = random.randint(0, total_weight)
-
-    for post in posts:
-        random_num -= post.coefficient
-        if random_num <= 0:
-            return post
-
-    return posts[0]
+    return [posts[0]]
 
 
-async def send_next_posts(user_tg_id: int, chat_id: int, mode: Modes, posts=None):
+async def send_next_posts(user_tg_id: int, chat_id: int, feed: Feeds, state: FSMContext, posts: list = None, amount: int = None):
+    user = await get_user(user_tg_id)
+    user_mode = Modes(user.mode)
+
+    if user_mode == Modes.SINGLE_MODE['id']:
+        amount = 1
+
     if not posts:
-        posts = await get_next_posts(user_tg_id, mode)
+        posts = await get_next_posts(user_tg_id, feed, amount)
         if not posts:
-            return await send_end_message(user_tg_id, chat_id, mode)
-    for post in posts:
+            return await send_end_message(user_tg_id, chat_id, feed)
+
+    posts_amount = len(posts)
+
+    if feed == Feeds.RECOMMENDATIONS:
+        for post in posts:
+            result = await create_user_viewed_category_post(user_tg_id, post.id)
+            if result == errors.DUPLICATE_ERROR_TEXT:
+                await update_user_viewed_category_post_counter(user_tg_id, post.id)
+
+    for i, post in enumerate(posts, start=1):
+        current_state = await state.get_state()
+        if current_state not in [PersonalStates.SCROLL.state, CategoriesStates.SCROLL.state, RecommendationsStates.SCROLL.state]:
+            break
+
         entities = pickle.loads(post.entities)
         media_path = post.media_path
         likes = post.likes
@@ -86,34 +98,38 @@ async def send_next_posts(user_tg_id: int, chat_id: int, mode: Modes, posts=None
         message_text = f'{post.text}\n\nПост с канала @{channel_username}'
         message_text_len = len(message_text)
 
-        if mode == Modes.CATEGORIES:
+        if feed == Feeds.CATEGORIES:
             category = post.name + post.emoji
             message_text += f'\nКатегория: {category}'
 
-        reactions_keyboard = ReplyKeyboardRemove()
-
-        if mode == Modes.RECOMMENDATIONS:
+        reactions_keyboard = None
+        channel_type = None
+        if feed == Feeds.RECOMMENDATIONS:
             if hasattr(post, 'premium_channel_id'):
                 result = await create_user_viewed_premium_post(user_tg_id, post_id)
                 if result == errors.DUPLICATE_ERROR_TEXT:
                     await update_user_viewed_premium_post_counter(user_tg_id, post_id)
 
-                reactions_keyboard = build_reactions_inline_keyboard(likes, dislikes, ChannelPostTypes.PREMIUM, post_id, mode)
+                channel_type = ChannelPostTypes.PREMIUM
 
             elif hasattr(post, 'category_channel_id'):
-                result = await create_user_viewed_category_post(user_tg_id, post_id)
-                if result == errors.DUPLICATE_ERROR_TEXT:
-                    await update_user_viewed_category_post_counter(user_tg_id, post_id)
+                channel_type = ChannelPostTypes.CATEGORY
 
-                reactions_keyboard = build_reactions_inline_keyboard(likes, dislikes, ChannelPostTypes.CATEGORY, post_id, mode)
-
-        elif mode == Modes.CATEGORIES:
+        elif feed == Feeds.CATEGORIES:
             await create_user_viewed_category_post(user_tg_id, post_id)
-            reactions_keyboard = build_reactions_inline_keyboard(likes, dislikes, ChannelPostTypes.CATEGORY, post_id, mode)
+            channel_type = ChannelPostTypes.CATEGORY
 
-        elif mode == Modes.PERSONAL:
+        elif feed == Feeds.PERSONAL:
             await create_user_viewed_personal_post(user_tg_id, post_id)
-            reactions_keyboard = build_reactions_inline_keyboard(likes, dislikes, ChannelPostTypes.PERSONAL, post_id, mode)
+            channel_type = ChannelPostTypes.PERSONAL
+
+        reactions_keyboard = build_reactions_inline_keyboard(likes, dislikes, channel_type, post_id, feed)
+
+        if channel_type and (feed != Feeds.RECOMMENDATIONS or user_mode == Modes.SINGLE_MODE['id']):
+            next_button_text = general_inline_buttons_texts.NEXT_POST_BUTTON_TEXT
+            callback_data = f'{callbacks.NEXT}:{feed}:{1}'
+            next_button = InlineKeyboardButton(next_button_text, callback_data=callback_data)
+            reactions_keyboard = build_reactions_inline_keyboard(likes, dislikes, channel_type, post_id, feed, next_button)
 
         try:
             if not media_path:
@@ -123,20 +139,44 @@ async def send_next_posts(user_tg_id: int, chat_id: int, mode: Modes, posts=None
                     await bot_client.send_chat_action(chat_id, action=ChatAction.UPLOAD_PHOTO)
                     if message_text_len > 1024:
                         message = await bot_client.send_photo(chat_id, media_path)
-                        await bot_client.send_message(chat_id, text=message_text, entities=entities, reply_to_message_id=message.id,
-                                                      reply_markup=reactions_keyboard, disable_notification=True)
+                        await bot_client.send_message(
+                            chat_id,
+                            text=message_text,
+                            entities=entities,
+                            reply_to_message_id=message.id,
+                            reply_markup=reactions_keyboard,
+                            disable_notification=True
+                        )
                     else:
-                        await bot_client.send_photo(chat_id, media_path, caption=message_text, caption_entities=entities,
-                                                    reply_markup=reactions_keyboard, disable_notification=True)
+                        await bot_client.send_photo(
+                            chat_id,
+                            media_path,
+                            caption=message_text,
+                            caption_entities=entities,
+                            reply_markup=reactions_keyboard,
+                            disable_notification=True)
                 elif media_path.endswith('.mp4'):
                     await bot_client.send_chat_action(chat_id, action=ChatAction.UPLOAD_VIDEO)
                     if message_text_len > 1024:
                         message = await bot_client.send_video(chat_id, media_path)
-                        await bot_client.send_message(chat_id, message_text, entities=entities, reply_markup=reactions_keyboard,
-                                                      reply_to_message_id=message.id, disable_notification=True)
+                        await bot_client.send_message(
+                            chat_id,
+                            message_text,
+                            entities=entities,
+                            reply_markup=reactions_keyboard,
+                            reply_to_message_id=message.id,
+                            disable_notification=True
+                        )
+
                     else:
-                        await bot_client.send_video(chat_id, media_path, caption=message_text, caption_entities=entities,
-                                                    reply_markup=reactions_keyboard, disable_notification=True)
+                        await bot_client.send_video(
+                            chat_id,
+                            media_path,
+                            caption=message_text,
+                            caption_entities=entities,
+                            reply_markup=reactions_keyboard,
+                            disable_notification=True
+                        )
 
                 elif os.path.isdir(media_path):
                     media_group = []
@@ -147,34 +187,50 @@ async def send_next_posts(user_tg_id: int, chat_id: int, mode: Modes, posts=None
                             path = os.path.join(media_path, file)
                             media_group.append(InputMediaPhoto(path))
                         elif file.endswith('.mp4'):
-                            await bot_client.send_chat_action(chat_id, action=ChatAction.UPLOAD_PHOTO)
+                            await bot_client.send_chat_action(chat_id, action=ChatAction.UPLOAD_VIDEO)
                             path = os.path.join(media_path, file)
                             media_group.append(InputMediaVideo(path))
                     message = await bot_client.send_media_group(chat_id, media_group, disable_notification=True)
-                    await bot_client.send_message(chat_id, message_text, entities=entities, reply_markup=reactions_keyboard,
-                                                  reply_to_message_id=message[0].id, disable_notification=True)
-            await update_users_views_per_day(user_tg_id)
-            await update_daily_views()
+                    await bot_client.send_message(
+                        chat_id,
+                        message_text,
+                        entities=entities,
+                        reply_markup=reactions_keyboard,
+                        reply_to_message_id=message[0].id,
+                        disable_notification=True
+                    )
+            if user_mode == Modes.MULTI_MODE['id'] and (i in [consts.DEFAULT_POSTS_AMOUNT, posts_amount]):
+                next_posts_amount = consts.DEFAULT_POSTS_AMOUNT
+                callback_data = f'{callbacks.NEXT}:{feed}:{next_posts_amount}'.encode()
+                next_button_text = f'Подгрузить ещё {next_posts_amount} постов'
+                next_button = InlineKeyboardButton(next_button_text, callback_data=callback_data)
+                keyboard = InlineKeyboardMarkup([[next_button]])
+                await bot_client.send_message(chat_id, 'Внимание!\n\n\n\nПора подгрузить ешё постов!', reply_markup=keyboard)
         except Exception as err:
             await bot_client.send_message(chat_id, 'Упс. Не получилось отправить этот пост 😬', reply_markup=reactions_keyboard)
             logger.error(f'Ошибка при отправлении поста пользователю: {err}\n{post}\nMessage entities: {entities}')
+        finally:
+            time.sleep(1)
+
+    await update_users_views_per_day(user_tg_id, posts_amount)
+    await update_daily_views(posts_amount)
 
 
-async def send_end_message(user_tg_id: int, chat_id: int, mode: Modes):
-    no_post_keyboard = ReplyKeyboardRemove()
+async def send_end_message(user_tg_id: int, chat_id: int, feed: Feeds):
+    no_post_keyboard = None
     user_is_admin = user_tg_id in ADMINS
 
-    if mode == Modes.RECOMMENDATIONS:
+    if feed == Feeds.RECOMMENDATIONS:
         no_post_keyboard = recommendations_reply_keyboards.recommendations_start_control_keyboard
-    elif mode == Modes.CATEGORIES:
+    elif feed == Feeds.CATEGORIES:
         no_post_keyboard = categories_reply_keyboards.categories_start_control_keyboard
-    elif mode == Modes.PERSONAL:
+    elif feed == Feeds.PERSONAL:
         no_post_keyboard = personal_reply_keyboards.personal_start_control_keyboard
 
     if user_is_admin:
-        if mode == Modes.RECOMMENDATIONS:
+        if feed == Feeds.RECOMMENDATIONS:
             no_post_keyboard = recommendations_reply_keyboards.recommendations_admin_start_control_keyboard
-        elif mode == Modes.CATEGORIES:
+        elif feed == Feeds.CATEGORIES:
             no_post_keyboard = categories_reply_keyboards.categories_admin_start_control_keyboard
 
     await bot_client.send_message(chat_id, answers.POSTS_OVER, reply_markup=no_post_keyboard)

@@ -10,14 +10,13 @@ from database.queries.get_queries import get_categories, get_all_premium_channel
 from database.queries.create_queries import create_premium_posts, create_category_posts, create_category, create_coefficient
 from database.queries.update_queries import update_category
 from keyboards.general.helpers import build_reply_buttons, build_reply_keyboard
-from utils.consts import answers, errors, callbacks
+from utils.consts import answers, errors, callbacks, consts
 from parse import parse
 from store.states import AdminPanelStates
 from utils.helpers import add_channels, convert_list_of_items_to_string, reset_and_switch_state, remove_file_or_folder
 from keyboards import admin_inline_keyboards, admin_reply_buttons_texts, admin_reply_keyboards, general_reply_keyboards, general_reply_buttons_texts, \
     general_reply_buttons
 from utils.custom_types import ChannelPostTypes
-from config import config
 from config.logging_config import logger
 
 
@@ -318,7 +317,7 @@ async def on_delete_premium_button_click(callback: CallbackQuery, state: FSMCont
         await message.edit_reply_markup(reply_markup=keyboard)
 
     if result:
-        remove_file_or_folder(config.MEDIA_DIR + channel_username)
+        remove_file_or_folder(consts.MEDIA_DIR + channel_username)
         await callback.answer('Канал успешно удалён')
 
 
@@ -348,7 +347,7 @@ async def on_category_channel_message(message: Message, state: FSMContext):
         channel_username = message.text.split(' | ')[0]
         result = await delete_category_channel(channel_username)
         if result:
-            remove_file_or_folder(config.MEDIA_DIR + channel_username)
+            remove_file_or_folder(consts.MEDIA_DIR + channel_username)
             buttons_texts.remove(message.text)
             if not buttons_texts:
                 await reset_and_switch_state(state, AdminPanelStates.ADMIN_PANEL)
@@ -458,7 +457,7 @@ async def on_delete_coefficient_button_click(callback: CallbackQuery, state: FSM
 
 async def on_list_statistic_message(message: Message, state: FSMContext):
     statistic = await get_statistic()
-    answer = f'<i>Всего пользователей</i>: {statistic.total_users}\n<i>Новых пользователей</i>: {statistic.user_growth} 🆕\n<i>Пользовались сегодня</i>: {statistic.daily_users} 🔥\n<i>Лайков за сегодня</i>: {statistic.daily_likes} ❤\n<i>Дизлайков за сегодня</i>: {statistic.daily_dislikes} 👎\n'
+    answer = statistic.__str__()
     await message.answer(answer, reply_markup=admin_inline_keyboards.admin_recent_keyboard)
     await state.update_data(statistic=answer)
 
@@ -514,7 +513,7 @@ async def on_rename_category_name_message(message: Message, state: FSMContext):
     old_category_name = message.text.split(' ')[0]
     await state.update_data(old_category_name=old_category_name)
     await state.set_state(AdminPanelStates.GET_NEW_CATEGORY_NAME)
-    await message.answer('Введите новое <b>название</b> категории. Если вы хотите изменить и эмодзи категории, то просто напиши её через пробел',
+    await message.answer('Введите новое <b>название</b> категории. Если вы хотите изменить и эмодзи категории, то просто напиши её через запятую',
                          reply_markup=general_reply_keyboards.general_cancel_keyboard)
 
 
@@ -524,8 +523,8 @@ async def on_new_category_message(message: Message, state: FSMContext):
         return await message.answer(answers.ADMIN_PANEL_MESSAGE_TEXT, reply_markup=admin_reply_keyboards.admin_panel_control_keyboard)
     old_category_name = (await state.get_data())['old_category_name']
 
-    new_category = message.text.split(' ')
-    new_category_name = new_category[0]
+    new_category = message.text.split(',')
+    new_category_name = new_category[0].strip()
     new_category_emoji = None
 
     if len(new_category) > 1:

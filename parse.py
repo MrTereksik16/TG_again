@@ -1,15 +1,15 @@
 import asyncio
 import pickle
 from pyrogram import Client
-from config import config
 from create_bot import bot_client
 from database.queries.get_queries import *
 from utils.consts import errors
 from utils.custom_types import Post, ChannelPostTypes
 from utils.helpers import download_media_group, download_media
+from utils.consts import consts
 
 
-async def parse(channel_username: str, channel_type: ChannelPostTypes, chat_id: int = None, limit=config.POSTS_AMOUNT_LIMIT) -> list[Post] | None:
+async def parse(channel_username: str, channel_type: ChannelPostTypes, chat_id: int = None, limit=consts.POSTS_AMOUNT_LIMIT) -> list[Post] | None:
     channel_username = channel_username.replace('@', '')
     if channel_type == ChannelPostTypes.PREMIUM:
         general_channel = await get_premium_channel(channel_username)

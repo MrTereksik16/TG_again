@@ -11,7 +11,7 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
     logger.warning("Starting the bot...")
 
-    create_initial_data()
+    # create_initial_data()
 
     register_generals_handlers(dp)
     register_recommendations_handlers(dp)

@@ -4,15 +4,18 @@ from aiogram.dispatcher.filters.state import StatesGroup, State
 class PersonalStates(StatesGroup):
     PERSONAL_FEED = State()
     GET_USER_CHANNELS = State()
+    SCROLL = State()
 
 
 class CategoriesStates(StatesGroup):
     CATEGORIES_FEED = State()
     GET_USER_CATEGORIES = State()
+    SCROLL = State()
 
 
 class RecommendationsStates(StatesGroup):
     RECOMMENDATIONS_FEED = State()
+    SCROLL = State()
 
 
 class AdminPanelStates(StatesGroup):
@@ -29,6 +32,4 @@ class AdminPanelStates(StatesGroup):
     GET_NEW_CATEGORY_NAME = State()
     DELETE_CATEGORIES_CHANNELS = State()
     DELETE_CATEGORIES = State()
-
     RENAME_CATEGORY = State()
-

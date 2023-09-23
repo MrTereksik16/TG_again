@@ -10,6 +10,7 @@ from database.queries.delete_queries import delete_first_personal_channel_post, 
 from database.queries.get_queries import get_premium_channel, get_category_channel, get_personal_channel, get_personal_channel_posts, \
     get_all_premium_channel_posts, get_category_channel_posts, get_all_channels
 from database.queries.create_queries import create_premium_post, create_category_post, create_personal_post
+from utils.consts import consts
 from utils.custom_types import Post
 
 app = Client('update_session', config.BOT_API_ID, config.BOT_API_HASH, phone_number=config.BOT_PHONE_NUMBER)
@@ -76,18 +77,18 @@ async def update_post(client: Client, message: Message):
 
         if premium_channel:
             posts = await get_all_premium_channel_posts(channel_id)
-            if len(posts) >= config.POSTS_AMOUNT_LIMIT:
+            if len(posts) >= consts.POSTS_AMOUNT_LIMIT:
                 media_path = await delete_first_premium_channel_post(channel_id)
             await create_premium_post(new_post)
         elif category_channel:
             posts = await get_category_channel_posts(channel_id)
-            if len(posts) >= config.POSTS_AMOUNT_LIMIT:
+            if len(posts) >= consts.POSTS_AMOUNT_LIMIT:
                 media_path = await delete_first_category_channel_post(channel_id)
             await create_category_post(new_post)
 
         if personal_channel:
             posts = await get_personal_channel_posts(channel_id)
-            if len(posts) >= config.POSTS_AMOUNT_LIMIT:
+            if len(posts) >= consts.POSTS_AMOUNT_LIMIT:
                 media_path = await delete_first_personal_channel_post(channel_id)
             await create_personal_post(new_post)
 

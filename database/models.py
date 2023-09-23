@@ -16,6 +16,7 @@ class User(Base):
     created_at = Column(TIMESTAMP, server_default=func.now())
     visited_at = Column(TIMESTAMP, server_default=func.now())
     views_per_day = Column(INTEGER(unsigned=True), default=0)
+    mode = Column(TINYINT(unsigned=True), nullable=False, default=0)
 
     user_event_type_connection = relationship('UserEvent', cascade='all, delete', back_populates='user_connection')
     user_channel_connection = relationship('UserChannel', cascade='all, delete', back_populates='user_connection')
@@ -279,7 +280,7 @@ class DailyStatistic(Base):
     new_users_amount = Column(INTEGER(unsigned=True), default=0)
     likes = Column(INTEGER(unsigned=True), default=0)
     dislikes = Column(INTEGER(unsigned=True), default=0)
-    views = Column(INTEGER(unsigned=True), default=0)
+    views = Column(INTEGER(unsigned=True), default=0, nullable=False)
 
     def __repr__(self):
         return f'<DailyStatistic(date_today={self.date_today}, new_users_amount={self.new_users_amount}, likes={self.likes},dislikes={self.dislikes})>'

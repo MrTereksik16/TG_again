@@ -1,13 +1,14 @@
 import time
 from pyrogram import Client
-from create_bot import scheduler
+from create_bot import scheduler, bot_client
 from database.queries.create_queries import create_daily_statistic, create_premium_posts, create_category_posts, create_personal_posts
-from database.queries.get_queries import get_all_channels, get_all_premium_channels, get_all_categories_channels, get_all_personal_channels
+from database.queries.get_queries import get_all_channels, get_all_premium_channels, get_all_categories_channels, get_all_personal_channels, \
+    get_users
 from database.queries.update_queries import update_users_views_per_day
 from aiogram import types
 from config import config
 from parse import parse
-from utils.consts import commands
+from utils.consts import commands, answers
 from utils.custom_types import ChannelPostTypes
 from utils.helpers import add_channels
 
@@ -43,8 +44,6 @@ async def add_base_channels():
     to_parse = []
     for record in add_channels_result:
         to_parse.extend(record.to_parse)
-
-    print(to_parse)
 
     for channel_username in to_parse:
         posts = await parse(channel_username, ChannelPostTypes.CATEGORY)
@@ -85,13 +84,21 @@ async def parse_and_create_added_channels_posts():
         time.sleep(1)
 
 
+async def send_updates_news(message_text: str):
+    users = await get_users()
+    for user in users:
+        try:
+            await bot_client.send_message(user.id, message_text)
+        except Exception:
+            pass
+
+
 async def on_start_bot_tasks(dp):
     await dp.bot.set_my_commands([
         types.BotCommand(commands.START, 'Лента рекомендаций'),
-        types.BotCommand(commands.GUIDE, 'Инструкция пользования')
+        types.BotCommand(commands.GUIDE, 'Инструкция пользования'),
+        types.BotCommand(commands.SWITCH_MODE, 'Сменить режим')
     ])
 
     await scheduler_jobs()
-    # await add_base_channels()
-    # await add_channels_in_handler()
-    # await parse_and_create_added_channels_posts()
+    # await send_updates_news(answers.NEW_UPDATES_MESSAGE_TEXT)

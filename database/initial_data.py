@@ -2,7 +2,6 @@ from sqlalchemy import text
 from config.logging_config import logger
 from database.create_db import Session
 from database.models import Category, MarkType, Coefficient, EventType
-from parse import parse
 from utils.consts.categories import CATEGORIES, CATEGORIES_EMOJI
 from utils.custom_types import UserEventsTypes
 

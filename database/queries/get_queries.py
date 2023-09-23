@@ -3,6 +3,7 @@ from config.logging_config import logger
 from database.create_db import Session
 from database.models import User, PersonalChannel, UserChannel, PremiumChannel, CategoryChannel, Category, UserCategory, PersonalPost, PremiumPost, \
     CategoryPost, Coefficient, DailyStatistic
+from utils.consts import consts
 from utils.custom_types import MarkTypes, Statistic
 
 
@@ -16,6 +17,18 @@ async def get_user(user_tg_id: int) -> User:
     finally:
         session.close()
         return user
+
+
+async def get_users() -> list[User]:
+    session = Session()
+    users = []
+    try:
+        users = session.query(User).all()
+    except Exception as err:
+        logger.error(err)
+    finally:
+        session.close()
+        return users
 
 
 async def get_personal_channel(channel_username: str) -> PersonalChannel:
@@ -65,7 +78,7 @@ async def get_premium_channel(channel_username: str) -> PremiumChannel | None:
         channel = session.query(PremiumChannel).filter(
             PremiumChannel.channel_username == channel_username).one()
     except Exception as err:
-        logger.error(f'Ошибка при получении премиального канала канала: {err}')
+        logger.error(f'Ошибка при получении премиального канала канала {channel_username}: {err}')
     finally:
         session.close()
         return channel
@@ -89,7 +102,7 @@ async def get_category_channel(channel_username: str) -> CategoryChannel | None:
     try:
         channel = session.query(CategoryChannel).filter(CategoryChannel.channel_username == channel_username).one()
     except Exception as err:
-        logger.error(f'Ошибка при получении канала из категорий: {err}')
+        logger.error(f'Ошибка при получении канала {channel_username} из категорий: {err}')
     finally:
         session.close()
         return channel
@@ -118,7 +131,7 @@ async def get_user_personal_posts(user_tg_id: int) -> list:
         join personal_channel on personal_channel.id = user_channel.channel_id and user_channel.user_id = {user_tg_id}
         left join user_viewed_personal_post uvpp on posts.id = uvpp.personal_post_id and uvpp.user_id = {user_tg_id}
         where uvpp.user_id is NULL
-        group by channel_id limit 10
+        group by channel_id limit 1
         '''
 
         records = session.execute(text(query))
@@ -196,7 +209,7 @@ async def get_premium_posts(user_tg_id) -> list:
                 left join user_viewed_premium_post uvpp on posts.id = uvpp.premium_post_id and uvpp.user_id = {user_tg_id}
                 where (counter is null or counter = 0) and (mark_type_id is null or mark_type_id != {MarkTypes.REPORT})
                 order by RAND()
-            ) p where row_num = 1
+            ) p where row_num = 1 limit 5
             '''
 
         records = session.execute(text(query))
@@ -224,9 +237,9 @@ async def get_not_viewed_categories_posts(user_tg_id) -> list:
                 join category c on cc.category_id = c.id
                 join user_category uc on cc.category_id = uc.category_id and uc.user_id = {user_tg_id}
                 left join user_viewed_category_post uvcp on posts.id = uvcp.category_post_id and uvcp.user_id = {user_tg_id}
-                where uvcp.user_id is null
+                where uvcp.user_id is null order by rand()
             ) subquery
-            where row_num = 1 limit 10
+            where row_num = 1 limit 1
         '''
 
         records = session.execute(text(query))
@@ -239,9 +252,13 @@ async def get_not_viewed_categories_posts(user_tg_id) -> list:
         return posts
 
 
-async def get_best_categories_posts(user_tg_id) -> list:
+async def get_best_categories_posts(user_tg_id: int, amount: int = None) -> list:
     session = Session()
     posts = []
+
+    if not amount:
+        amount = consts.POSTS_AMOUNT_LIMIT
+
     try:
         query = f'''
         select *
@@ -251,7 +268,7 @@ async def get_best_categories_posts(user_tg_id) -> list:
             join category c on cc.category_id = c.id
             left join user_viewed_category_post uvcp on posts.id = uvcp.category_post_id and uvcp.user_id = {user_tg_id}
             where (counter is NULL or counter = 0) and (mark_type_id is null or mark_type_id != {MarkTypes.REPORT})
-        ) subquery where likes >= dislikes and row_num = 1 order by rand() limit 10
+        ) subquery where likes >= dislikes and row_num = 1 order by rand() limit {amount}
         '''
 
         records = session.execute(text(query))
@@ -310,7 +327,7 @@ async def get_viewed_personal_post(user_tg_id: int, post_id: int):
 
         personal_post = session.execute(text(query)).one()
     except Exception as err:
-        logger.error(f'Ошибка при получении реакции на персональный пост пользователя: {err}')
+        logger.error(f'Ошибка при получении просмотренного персонального поста пользователем c id={post_id}: {err}')
     finally:
         session.close()
         return personal_post
@@ -327,7 +344,7 @@ async def get_viewed_premium_post(user_tg_id: int, post_id: int):
         '''
         premium_post = session.execute(text(query)).one()
     except Exception as err:
-        logger.error(f'Ошибка при получении реакции на премиальный пост пользователя: {err}')
+        logger.error(f'Ошибка при получении просмотренного пользователем премиального поста с id={post_id}: {err}')
     finally:
         session.close()
         return premium_post
@@ -345,7 +362,7 @@ async def get_viewed_category_post(user_tg_id: int, post_id: int):
 
         category_post = session.execute(text(query)).one()
     except Exception as err:
-        logger.error(f'Ошибка при получении реакции на пост из категорий пользователя: {err}')
+        logger.error(f'Ошибка при получении просмотренного пользователем поста из категорий с id={post_id}: {err}')
     finally:
         session.close()
         return category_post
@@ -451,7 +468,16 @@ async def get_statistic() -> Statistic | None:
         daily_statistic: DailyStatistic = session.query(DailyStatistic).filter(DailyStatistic.date_today == func.current_date()).one()
         total_users = session.query(User.id).count()
         daily_users = session.query(User).filter(cast(User.visited_at, Date) == func.current_date()).count()
-        statistic = Statistic(total_users, daily_users, daily_statistic.likes, daily_statistic.dislikes, daily_statistic.new_users_amount)
+        daily_views = session.query(func.sum(User.views_per_day)).scalar()
+
+        statistic = Statistic(
+            total_users,
+            daily_users,
+            daily_statistic.likes,
+            daily_statistic.dislikes,
+            daily_statistic.new_users_amount,
+            daily_views
+        )
     except Exception as err:
         logger.error(f'Ошибка при получении статистики: {err}')
     finally:

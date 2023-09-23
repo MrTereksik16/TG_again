@@ -2,13 +2,12 @@ from pyrogram.types import ReplyKeyboardMarkup
 from .personal_reply_buttons import *
 
 start_control_buttons = [
-
+    [start_button],
     [list_user_channels_button, add_user_channels_button, delete_user_channels_button],
     [to_recommendations_button, to_categories_button],
 ]
 
 control_buttons = [
-
     [list_user_channels_button, add_user_channels_button, delete_user_channels_button],
     [to_recommendations_button, to_categories_button],
 ]

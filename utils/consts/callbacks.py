@@ -9,3 +9,5 @@ DELETE_COEFFICIENT = 'delete_coefficient'
 FORWARD = 'forward'
 START = 'start'
 NEXT = 'next'
+
+MODES = 'modes'

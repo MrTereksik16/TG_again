@@ -7,10 +7,10 @@ from database.models import UserChannel, User, PersonalPost, PersonalChannel, Us
 from utils.custom_types import Post
 
 
-async def create_user(user_tg_id: int, first_name: str, last_name: str, username: str) -> bool:
+async def create_user(user_tg_id: int, first_name: str, last_name: str, username: str, mode: int) -> bool:
     session = Session()
     try:
-        user = User(id=user_tg_id, first_name=first_name, last_name=last_name, username=username)
+        user = User(id=user_tg_id, first_name=first_name, last_name=last_name, username=username, mode=mode)
         session.add(user)
         session.commit()
         return True

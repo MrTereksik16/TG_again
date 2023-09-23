@@ -2,7 +2,7 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyb
 from utils.consts import callbacks
 from database.models import PersonalPost, CategoryPost, PremiumPost
 from keyboards.general.inline import general_inline_buttons_texts
-from utils.custom_types import ChannelPostTypes, Modes
+from utils.custom_types import ChannelPostTypes, Feeds
 
 
 def build_reply_buttons(texts: list[str | int]) -> list[KeyboardButton]:
@@ -10,13 +10,6 @@ def build_reply_buttons(texts: list[str | int]) -> list[KeyboardButton]:
     for category in texts:
         buttons.append(KeyboardButton(text=category))
     return buttons
-
-def build_start_inline_keyboards(mode: Modes) -> InlineKeyboardMarkup:
-    callback_data = f'{callbacks.START}:{mode}'.encode()
-    start_button = InlineKeyboardButton(general_inline_buttons_texts.START_BUTTON_TEXT,
-                                       callback_data=callback_data)
-    keyboard = InlineKeyboardMarkup([[start_button]])
-    return keyboard
 
 
 def build_reply_keyboard(buttons: list[KeyboardButton], n_cols: int = 2, header_buttons: list[KeyboardButton] | KeyboardButton = None,
@@ -36,7 +29,12 @@ def build_reply_keyboard(buttons: list[KeyboardButton], n_cols: int = 2, header_
     return ReplyKeyboardMarkup(menu, resize_keyboard=True)
 
 
-def build_reactions_inline_keyboard(likes: int, dislikes: int, post_type: ChannelPostTypes, post_id: int, mode: Modes) -> InlineKeyboardMarkup:
+def build_reactions_inline_keyboard(
+        likes: int, dislikes: int,
+        post_type: ChannelPostTypes,
+        post_id: int, feed: Feeds,
+        next_button: InlineKeyboardButton = None
+) -> InlineKeyboardMarkup:
     if likes >= 1000000:
         likes = f'{likes // 1000000}M'
     elif likes >= 1000:
@@ -46,25 +44,37 @@ def build_reactions_inline_keyboard(likes: int, dislikes: int, post_type: Channe
         likes = f'{dislikes // 1000000}M'
     elif dislikes >= 1000:
         dislikes = f'{dislikes // 1000}K'
-    callback_data = f'{callbacks.LIKE}:{post_type}:{post_id}:{likes}:{dislikes}:{mode}'.encode()
+    callback_data = f'{callbacks.LIKE}:{post_type}:{post_id}:{likes}:{dislikes}:{feed}'.encode()
     like_button = InlineKeyboardButton(f'{general_inline_buttons_texts.LIKE_BUTTON_TEXT} {likes}',
                                        callback_data=callback_data)
 
-    callback_data = f'{callbacks.DISLIKE}:{post_type}:{post_id}:{likes}:{dislikes}:{mode}'.encode()
+    callback_data = f'{callbacks.DISLIKE}:{post_type}:{post_id}:{likes}:{dislikes}:{feed}'.encode()
     dislike_button = InlineKeyboardButton(f'{general_inline_buttons_texts.DISLIKE_BUTTON_TEXT} {dislikes}',
                                           callback_data=callback_data)
 
-    callback_data = f'{callbacks.REPORT}:{post_type}:{post_id}:{mode}'.encode()
+    callback_data = f'{callbacks.REPORT}:{post_type}:{post_id}:{feed}'.encode()
     report_button = InlineKeyboardButton(general_inline_buttons_texts.REPORT_BUTTON_TEXT,
                                          callback_data=callback_data)
+    if next_button:
+        keyboard = InlineKeyboardMarkup([[like_button, dislike_button, report_button], [next_button]])
+    else:
+        keyboard = InlineKeyboardMarkup([[like_button, dislike_button, report_button]])
 
-    callback_data = f'{callbacks.NEXT}:{mode}'.encode()
-    next_button = InlineKeyboardButton(general_inline_buttons_texts.NEXT_BUTTON_TEXT,
-                                       callback_data=callback_data)
+    return keyboard
 
 
-    keyboard = InlineKeyboardMarkup([[like_button, dislike_button, report_button], [next_button]])
+def build_modes_inline_keyboard(user_mode: int, modes: list[dict]) -> InlineKeyboardMarkup:
+    buttons = []
+    for mode in modes:
+        button_text = mode['name']
 
+        if user_mode == mode['id']:
+            button_text += ' ✔'
+
+        callback_data = f'{callbacks.MODES}:{mode["id"]}'
+        mode_button = InlineKeyboardButton(button_text, callback_data=callback_data)
+        buttons.append(mode_button)
+    keyboard = InlineKeyboardMarkup([buttons])
     return keyboard
 
 
