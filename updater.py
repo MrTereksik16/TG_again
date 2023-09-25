@@ -15,6 +15,8 @@ from utils.custom_types import Post
 
 app = Client('update_session', config.BOT_API_ID, config.BOT_API_HASH, phone_number=config.BOT_PHONE_NUMBER)
 
+handlers = {}
+
 
 async def on_message(client: Client, message: Message):
     from utils.helpers import clean_channel_id
@@ -38,7 +40,8 @@ async def on_message(client: Client, message: Message):
     except Exception:
         await client.join_chat(channel_username)
 
-    client.add_handler(MessageHandler(update_post, filters.chat(message.text)))
+    handler = client.add_handler(MessageHandler(update_post, filters.chat(message.text)))
+    handlers[f'{channel_username}'] = handler
 
 
 async def update_post(client: Client, message: Message):
@@ -53,8 +56,10 @@ async def update_post(client: Client, message: Message):
             category_channel = await get_category_channel(channel_username)
 
         personal_channel = await get_personal_channel(channel_username)
-
         if not (premium_channel or personal_channel or category_channel):
+            if channel_username in handlers:
+                handler = handlers[f'{channel_username}']
+                client.remove_handler(*handler)
             return
 
         channel_id = clean_channel_id(message.chat.id)

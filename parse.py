@@ -7,6 +7,7 @@ from utils.consts import errors
 from utils.custom_types import Post, ChannelPostTypes
 from utils.helpers import download_media_group, download_media
 from utils.consts import consts
+from config import config
 
 
 async def parse(channel_username: str, channel_type: ChannelPostTypes, chat_id: int = None, limit=consts.POSTS_AMOUNT_LIMIT) -> list[Post] | None:

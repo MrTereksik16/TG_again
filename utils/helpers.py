@@ -199,7 +199,7 @@ async def send_next_posts(user_tg_id: int, chat_id: int, feed: Feeds, state: FSM
                         reply_to_message_id=message[0].id,
                         disable_notification=True
                     )
-            if user_mode == Modes.MULTI_MODE['id'] and (i in [consts.DEFAULT_POSTS_AMOUNT, posts_amount]):
+            if feed == Feeds.RECOMMENDATIONS and user_mode == Modes.MULTI_MODE['id'] and (i in [consts.DEFAULT_POSTS_AMOUNT, posts_amount]):
                 next_posts_amount = consts.DEFAULT_POSTS_AMOUNT
                 callback_data = f'{callbacks.NEXT}:{feed}:{next_posts_amount}'.encode()
                 next_button_text = f'Подгрузить ещё {next_posts_amount} постов'
