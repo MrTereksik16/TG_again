@@ -384,7 +384,7 @@ async def on_report_button_click(callback: CallbackQuery, state: FSMContext):
             await bot_client.delete_messages(chat_id, message_ids)
     except Exception as err:
         logger.error(f'Ошибка при удалении поста из ленты пользователя: {err}')
-    await send_next_posts(user_tg_id, chat_id, feed, state)
+    await send_next_posts(user_tg_id, chat_id, feed, state, amount=1)
     await send_post_to_support(viewed_post)
 
 
